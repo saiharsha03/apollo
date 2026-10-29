@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../pages/look.css">
+<script src="../pages/kit.js"></script>
+<style>
+html, body { height: 100%; background: transparent; }
+body { margin: 0; padding: 14px 16px; border-radius: 24px; background: var(--raised); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.k { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--quiet); }
+.n { font-size: 32px; font-weight: 700; line-height: 1; }
+.meter { height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ink); }
+.next { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style></head><body data-tap="open">
+<div class="k">Setup</div>
+<div class="n" id="n">--</div>
+<div class="meter"><i id="m" style="width:0"></i></div>
+<div class="next quiet" id="next"></div>
+<script>
+(function () {
+  var rows = q("SELECT s.step, (s.done = 1 OR st.ok = 1) AS ok FROM steps s LEFT JOIN status st ON st.key = s.key ORDER BY s.sort, s.id");
+  if (!rows.length) return;
+  var done = rows.filter(function (r) { return r.ok; }).length, left = rows.filter(function (r) { return !r.ok; });
+  $("n").textContent = done + " of " + rows.length;
+  $("m").style.width = Math.round(100 * done / rows.length) + "%";
+  $("next").textContent = left.length ? "Next: " + left[0].step : "All set";
+})();
+</script></body></html>

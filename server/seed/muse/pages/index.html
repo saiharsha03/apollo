@@ -1,0 +1,59 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Muse</title><link rel="stylesheet" href="apollo.css">
+<style>
+.now { display: flex; align-items: center; gap: 14px; }
+.art { width: 64px; height: 64px; border-radius: 14px; background: var(--soft); display: grid; place-items: center; flex: none; }
+.art svg { width: 28px; height: 28px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 120px; margin-top: 8px; }
+.week div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; }
+.week i { display: block; width: 100%; max-width: 28px; border-radius: 8px; background: var(--quiet); opacity: .35; min-height: 3px; }
+.week i.today { background: var(--ink); opacity: 1; }
+.week span { font-size: 11px; color: var(--quiet); }
+.rank { width: 22px; color: var(--quiet); font-size: 13px; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Muse</div>
+<div class="card now">
+  <div class="art"><svg viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></div>
+  <div class="grow" style="min-width:0"><div class="small" id="when">Nothing played yet</div><h2 id="track" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></h2><div class="quiet" id="artist"></div></div>
+</div>
+<div class="kicker">This week</div>
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><div class="small">Minutes listened</div><div class="n mid" id="total">0</div></div><div class="week" id="week"></div></div>
+<div class="kicker">Top artists, 30 days</div><div class="card" id="top"></div>
+<div class="kicker">Recently played</div><div class="card" id="recent"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function ago(ms) { var m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "Just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : new Date(ms).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
+
+  var last = q("SELECT track, artist, at FROM plays ORDER BY at DESC LIMIT 1")[0];
+  if (last) {
+    document.getElementById("when").textContent = ago(last.at);
+    document.getElementById("track").textContent = last.track || "Unknown track";
+    document.getElementById("artist").textContent = last.artist || "";
+  }
+
+  // Seven days ending today, local midnight to midnight.
+  var start = new Date(); start.setHours(0, 0, 0, 0); start = start.getTime() - 6 * 864e5;
+  var mins = [0, 0, 0, 0, 0, 0, 0];
+  q("SELECT at, COALESCE(seconds, 0) AS s FROM plays WHERE at >= " + start).forEach(function (r) {
+    var i = Math.floor((r.at - start) / 864e5); if (i >= 0 && i < 7) mins[i] += r.s / 60;
+  });
+  var max = Math.max(1, Math.max.apply(null, mins));
+  document.getElementById("total").textContent = Math.round(mins.reduce(function (a, b) { return a + b; }, 0));
+  document.getElementById("week").innerHTML = mins.map(function (m, i) {
+    var d = new Date(start + i * 864e5);
+    return '<div><i class="' + (i === 6 ? "today" : "") + '" style="height:' + Math.max(3, m / max * 92) + 'px"></i><span>' + d.toLocaleDateString("en-US", { weekday: "narrow" }) + '</span></div>';
+  }).join("");
+
+  var top = q("SELECT artist, COUNT(*) AS n, SUM(COALESCE(seconds, 0)) AS s FROM plays WHERE artist IS NOT NULL AND at >= " + (Date.now() - 30 * 864e5) + " GROUP BY artist ORDER BY s DESC, n DESC LIMIT 8");
+  document.getElementById("top").innerHTML = top.length ? top.map(function (r, i) {
+    return '<div class="row"><span class="rank n">' + (i + 1) + '</span><div class="grow"><div class="title">' + esc(r.artist) + '</div></div><div class="small">' + r.n + ' plays</div></div>';
+  }).join("") : '<div class="empty">Not enough listening yet.</div>';
+
+  var recent = q("SELECT track, artist, at FROM plays ORDER BY at DESC LIMIT 30");
+  document.getElementById("recent").innerHTML = recent.length ? recent.map(function (r) {
+    return '<div class="row"><div class="grow"><div class="title">' + esc(r.track || "Unknown track") + '</div><div class="small">' + esc(r.artist || "") + '</div></div><div class="small right">' + esc(ago(r.at)) + '</div></div>';
+  }).join("") : '<div class="empty">Plays show up here as the phone hears them.</div>';
+})();
+</script></body></html>

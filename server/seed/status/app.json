@@ -1,0 +1,10 @@
+{
+  "name": "status",
+  "title": "Status",
+  "icon": "pulse",
+  "about": "The health page for Apollo itself: Cerberus's alerts (open and resolved) and how each part of the server is doing. Not his body's health; that's the Health app.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": []
+}

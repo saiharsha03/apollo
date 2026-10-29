@@ -1,0 +1,12 @@
+.gradle/
+build/
+app/build/
+local.properties
+app/google-services.json
+_secrets/
+*.apk
+__pycache__/
+*.pyc
+.kotlin/
+# Avatar clip originals (37 MB); the APK uses the cut-down copies in res/raw.
+art/**/*.mp4

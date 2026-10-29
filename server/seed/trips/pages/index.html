@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  .leg { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .leg:first-child { border-top: 0; }
+  .leg .time { width: 64px; flex: none; font-weight: 600; }
+  .leg .time span { display: block; font-size: 12px; color: var(--quiet); font-weight: 500; }
+  .leg .k { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--quiet); }
+  .leg b { display: block; font-weight: 600; }
+  .ref { font-family: ui-monospace, monospace; font-size: 13px; background: var(--soft); border-radius: 6px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<section id="list">
+  <h1>Trips</h1>
+  <div id="next"></div>
+  <div id="later"></div>
+  <div id="past"></div>
+</section>
+<section id="one" class="hidden">
+  <button class="link" id="back">All trips</button>
+  <h1 id="tname"></h1>
+  <div class="quiet" id="tsub"></div>
+  <div class="bar" id="tnote"></div>
+  <div id="legs"></div>
+</section>
+</div>
+<script>
+(function () {
+  var trips = [];
+  function d(s) { return s ? new Date(s + "T12:00:00") : null; }
+  function span(t) {
+    var a = d(t.start), b = d(t.end), o = { month: "short", day: "numeric" };
+    return a ? a.toLocaleDateString([], o) + (b && t.end !== t.start ? " to " + b.toLocaleDateString([], o) : "") : "Dates not set";
+  }
+  function until(t) {
+    var a = d(t.start); if (!a) return "";
+    var n = Math.round((new Date(t.start + "T00:00:00") - new Date(today() + "T00:00:00")) / 86400000);
+    return n > 1 ? "in " + n + " days" : n === 1 ? "tomorrow" : n === 0 ? "today" : "";
+  }
+  function row(t) {
+    return '<div class="row tap" data-id="' + t.id + '"><div class="grow"><b>' + esc(t.name) + '</b><span class="quiet">' + esc(span(t)) +
+      (t.place ? ", " + esc(t.place) : "") + '</span></div><div class="end">' + (t.status === "on" ? '<span class="pill on">On now</span>' : esc(until(t) || t.status)) + "</div></div>";
+  }
+  function section(title, list) { return list.length ? '<div class="kicker">' + title + '</div><div class="card">' + list.map(row).join("") + "</div>" : ""; }
+
+  function load() {
+    trips = q("SELECT id, name, slug, place, start, end, status FROM trips WHERE status <> 'cancelled' ORDER BY start");
+    var now = today();
+    var ahead = trips.filter(function (t) { return t.status !== "done" && (!t.end || t.end >= now); });
+    var past = trips.filter(function (t) { return ahead.indexOf(t) < 0; }).reverse();
+    $("next").innerHTML = section("Next", ahead.slice(0, 1));
+    $("later").innerHTML = section("Later", ahead.slice(1));
+    $("past").innerHTML = section("Been", past.slice(0, 20));
+    if (!trips.length) $("next").innerHTML = '<div class="empty">No trips yet. Iris adds them when she finds a booking, or tell Athena.</div>';
+    document.querySelectorAll("[data-id]").forEach(function (r) { r.onclick = function () { open(Number(r.dataset.id)); }; });
+  }
+
+  function open(id) {
+    var t = trips.filter(function (x) { return x.id === id; })[0];
+    if (!t) return;
+    $("tname").textContent = t.name;
+    $("tsub").textContent = [span(t), t.place, until(t)].filter(Boolean).join(", ");
+    var hasNote = t.slug && window.zeusNative && window.zeusNative.file("notes/trips/" + t.slug + ".md");
+    $("tnote").innerHTML = hasNote ? '<button id="md">Trip notes</button>' : "";
+    if (hasNote) $("md").onclick = function () { location.href = "../notes/trips/" + encodeURIComponent(t.slug) + ".md"; };
+    var legs = q("SELECT kind, title, start_at, end_at, tz, from_place, to_place, ref, detail FROM legs WHERE trip = " + id + " ORDER BY start_at");
+    var days = {};
+    legs.forEach(function (l) { var k = (l.start_at || "").slice(0, 10) || "Undated"; (days[k] = days[k] || []).push(l); });
+    $("legs").innerHTML = legs.length ? Object.keys(days).map(function (k) {
+      var head = k === "Undated" ? k : d(k).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+      return '<div class="kicker">' + esc(head) + '</div><div class="card">' + days[k].map(function (l) {
+        var tm = (l.start_at || "").slice(11, 16), tz = l.tz ? l.tz.split("/").pop().replace(/_/g, " ") : "";
+        return '<div class="leg"><div class="time">' + esc(tm || "--") + "<span>" + esc(tz) + '</span></div><div class="grow"><div class="k">' + esc(l.kind) + "</div><b>" + esc(l.title) + "</b>" +
+          (l.from_place || l.to_place ? '<div class="quiet">' + esc([l.from_place, l.to_place].filter(Boolean).join(" to ")) + (l.end_at ? ", until " + esc(l.end_at.slice(11, 16) || l.end_at.slice(0, 10)) : "") + "</div>" : "") +
+          (l.detail ? '<div class="quiet">' + esc(l.detail) + "</div>" : "") + (l.ref ? '<div style="margin-top:4px"><span class="ref">' + esc(l.ref) + "</span></div>" : "") + "</div></div>";
+      }).join("") + "</div>";
+    }).join("") : '<div class="empty">No bookings on this trip yet.</div>';
+    $("list").classList.add("hidden"); $("one").classList.remove("hidden"); window.scrollTo(0, 0);
+  }
+  $("back").onclick = function () { $("one").classList.add("hidden"); $("list").classList.remove("hidden"); };
+  load();
+})();
+</script>
+</body>
+</html>

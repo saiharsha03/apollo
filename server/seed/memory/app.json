@@ -1,0 +1,14 @@
+{
+  "name": "memory",
+  "title": "Memory",
+  "icon": "memory",
+  "about": "What Athena knows about Owner: one fact per row by topic, plus a md file per topic. He confirms facts; confirmed ones change only with his tap.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": [],
+  "routines": [
+    {"name": "Tidy memory", "when_time": "03:00", "tz": "America/New_York", "repeat": "daily",
+     "action": "Tidy the memory app: merge duplicate facts, fix topics, move long thinking into the topic md files, drop stale unconfirmed facts. Confirmed facts change only with his tap."}
+  ]
+}

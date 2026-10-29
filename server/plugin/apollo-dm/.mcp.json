@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "apollo-dm": {
+      "command": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "${CLAUDE_PLUGIN_ROOT}/server.py"
+      ],
+      "env": {
+        "APOLLO_CHANNEL": "dm"
+      }
+    }
+  }
+}

@@ -1,0 +1,101 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drives</title><link rel="stylesheet" href="apollo.css">
+<style>
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.stats .card { padding: 12px 14px; }
+.stats .card + .card { margin-top: 0; }
+.drive { display: flex; gap: 12px; align-items: stretch; padding: 12px 0; border-top: 1px solid var(--soft); }
+.drive:first-child { border-top: 0; }
+.map { width: 104px; height: 80px; flex: none; border-radius: 12px; background: var(--soft); }
+.map svg { width: 100%; height: 100%; display: block; }
+.info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.route { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nums { display: flex; gap: 14px; align-items: baseline; margin-top: auto; }
+.dayh { margin: 14px 0 0; font-size: 12px; color: var(--quiet); letter-spacing: .04em; text-transform: uppercase; }
+.dayh:first-child { margin-top: 0; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Drives</div>
+<h1 id="h">Drives</h1><div class="small" id="sub"></div>
+<div class="stats">
+  <div class="card"><div class="n mid" id="mi">--</div><div class="small">miles this week</div></div>
+  <div class="card"><div class="n mid" id="min">--</div><div class="small">minutes driving</div></div>
+  <div class="card"><div class="n mid" id="cnt">--</div><div class="small">drives</div></div>
+</div>
+<div class="kicker">Recent drives</div>
+<div class="card" id="list"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  // Phone-table text comes wrapped in « »; take them off.
+  function s(v) { return v == null ? "" : String(v).replace(/^«/, "").replace(/»$/, ""); }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function hm(ms) { return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); }
+  function dayLabel(ms) { return new Date(ms).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }); }
+  function dist(a, b, c, d) {
+    var R = 6371000, r = Math.PI / 180, dl = (c - a) * r, dn = (d - b) * r;
+    var x = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dn / 2) * Math.sin(dn / 2);
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+
+  var places = q("SELECT name, lat, lng, radius_m FROM places").map(function (p) { return { name: s(p.name), lat: p.lat, lng: p.lng, r: p.radius_m || 150 }; });
+  var stays = q("SELECT lat, lng, place FROM stays WHERE place IS NOT NULL ORDER BY start DESC LIMIT 200").map(function (p) { return { name: s(p.place), lat: p.lat, lng: p.lng, r: 150 }; })
+    .filter(function (p) { return p.name; });
+  function nameAt(pt) {
+    if (!pt) return "Unknown";
+    var best = null, bd = 1e9;
+    places.concat(stays).forEach(function (p) {
+      var d = dist(pt[0], pt[1], p.lat, p.lng);
+      if (d <= Math.max(p.r, 60) && d < bd) { best = p; bd = d; }
+    });
+    return best ? best.name : "Unnamed place";
+  }
+
+  function parse(t) {
+    try { var a = JSON.parse(s(t)); return Array.isArray(a) ? a.filter(function (p) { return p && isFinite(p[0]) && isFinite(p[1]); }) : []; } catch (e) { return []; }
+  }
+  function map(pts) {
+    var W = 104, H = 80, pad = 9;
+    if (pts.length < 2) return '<svg viewBox="0 0 ' + W + ' ' + H + '"></svg>';
+    var minLa = 90, maxLa = -90, minLn = 180, maxLn = -180;
+    pts.forEach(function (p) { minLa = Math.min(minLa, p[0]); maxLa = Math.max(maxLa, p[0]); minLn = Math.min(minLn, p[1]); maxLn = Math.max(maxLn, p[1]); });
+    var k = Math.cos((minLa + maxLa) / 2 * Math.PI / 180);
+    var w = Math.max((maxLn - minLn) * k, 1e-5), h = Math.max(maxLa - minLa, 1e-5);
+    var sc = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h);
+    var ox = (W - w * sc) / 2, oy = (H - h * sc) / 2;
+    function X(p) { return (ox + (p[1] - minLn) * k * sc).toFixed(1); }
+    function Y(p) { return (oy + (maxLa - p[0]) * sc).toFixed(1); }
+    var d = pts.map(function (p, i) { return (i ? "L" : "M") + X(p) + " " + Y(p); }).join("");
+    var a = pts[0], b = pts[pts.length - 1];
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Route map">' +
+      '<path d="' + d + '" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>' +
+      '<circle cx="' + X(a) + '" cy="' + Y(a) + '" r="3.5" fill="var(--quiet)"/>' +
+      '<circle cx="' + X(b) + '" cy="' + Y(b) + '" r="3.5" fill="var(--ink)" stroke="var(--soft)" stroke-width="1.5"/></svg>';
+  }
+
+  // Week: Monday midnight to now.
+  var mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  var rows = q("SELECT id, start, end, miles, minutes, points FROM trips ORDER BY start DESC LIMIT 60");
+  var wk = rows.filter(function (t) { return t.start >= mon.getTime(); });
+  var mi = wk.reduce(function (a, t) { return a + (t.miles || 0); }, 0);
+  var mn = wk.reduce(function (a, t) { return a + (t.minutes || 0); }, 0);
+  document.getElementById("mi").textContent = mi.toFixed(1);
+  document.getElementById("min").textContent = Math.round(mn);
+  document.getElementById("cnt").textContent = wk.length;
+  document.getElementById("h").textContent = rows.length ? rows.length + (rows.length === 1 ? " drive" : " drives") : "Drives";
+  document.getElementById("sub").textContent = "Week of " + mon.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + (rows.length ? "" : ". None yet.");
+
+  var out = "", lastDay = "";
+  rows.forEach(function (t) {
+    var pts = parse(t.points), dl = dayLabel(t.start);
+    if (dl !== lastDay) { out += '<div class="dayh">' + esc(dl) + '</div>'; lastDay = dl; }
+    var from = nameAt(pts[0]), to = nameAt(pts[pts.length - 1]);
+    var end = t.end || (t.minutes ? t.start + t.minutes * 60000 : null);
+    out += '<div class="drive"><div class="map">' + map(pts) + '</div><div class="info">' +
+      '<div class="title route">' + esc(from) + ' &rarr; ' + esc(to) + '</div>' +
+      '<div class="small">' + hm(t.start) + (end ? " – " + hm(end) : "") + '</div>' +
+      '<div class="nums"><span class="n mid">' + (t.miles != null ? Number(t.miles).toFixed(1) : "--") + '</span><span class="small">mi</span>' +
+      '<span class="n mid">' + (t.minutes != null ? Math.round(t.minutes) : "--") + '</span><span class="small">min</span></div></div></div>';
+  });
+  document.getElementById("list").innerHTML = out || '<div class="empty">No drives yet. The car\'s Bluetooth starts each one.</div>';
+})();
+</script></body></html>

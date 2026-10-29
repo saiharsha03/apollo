@@ -1,0 +1,100 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fuel</title><link rel="stylesheet" href="apollo.css"><script src="/kit/zeus.js"></script>
+<style>
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats .card { padding: 12px 14px; }
+.stats .card + .card { margin-top: 0; }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.form .wide { grid-column: 1 / -1; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Fuel</div>
+<h1 id="h">Fuel</h1><div class="small" id="sub"></div>
+<div class="tabs"><button data-t="fuel" aria-pressed="true">Fill-ups</button><button data-t="drives">Drives</button></div>
+
+<section id="fuel">
+  <div class="stats" style="margin-top:12px">
+    <div class="card"><div class="n mid" id="mpg">--</div><div class="small">mpg last fill</div></div>
+    <div class="card"><div class="n mid" id="avg">--</div><div class="small">mpg usual</div></div>
+    <div class="card"><div class="n mid" id="cpm">--</div><div class="small">cents a mile</div></div>
+  </div>
+  <div class="kicker">Add a fill-up</div>
+  <div class="card form">
+    <div><label for="g">Gallons</label><input id="g" inputmode="decimal"></div>
+    <div><label for="p">Price a gallon</label><input id="p" inputmode="decimal"></div>
+    <div><label for="o">Odometer</label><input id="o" inputmode="numeric"></div>
+    <div><label for="u">Total paid</label><input id="u" inputmode="decimal"></div>
+    <div class="wide"><label for="s">Station</label><input id="s" maxlength="80"></div>
+    <div class="wide" style="display:flex;gap:10px;align-items:center;margin-top:12px"><button class="go" id="save">Save</button><span class="small" id="msg"></span></div>
+  </div>
+  <div class="kicker">Fill-ups</div><div class="card" id="fills"></div>
+</section>
+
+<section id="drives" hidden>
+  <div class="stats" style="margin-top:12px">
+    <div class="card"><div class="n mid" id="wk">--</div><div class="small">miles this week</div></div>
+    <div class="card"><div class="n mid" id="since">--</div><div class="small">miles since fill</div></div>
+    <div class="card"><div class="n mid" id="trips">--</div><div class="small">drives this week</div></div>
+  </div>
+  <div class="kicker">Recent drives</div><div class="card" id="recent"></div>
+</section>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function w(s, a) { return window.zeus ? zeus.sql(s, a) : { error: "no bridge" }; }
+  function trips(s) { var r = window.zeus ? zeus.peek("drives", s) : null; return r && Array.isArray(r.rows) ? r.rows : []; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function day(ms) { return new Date(ms).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
+  function num(id) { var v = parseFloat(document.getElementById(id).value); return isFinite(v) && v > 0 ? v : null; }
+
+  var fills = q("SELECT id, at, station, gallons, price, usd, odometer FROM fills ORDER BY at");
+  // mpg between consecutive fills that both have odometers; Zeus's sanity range.
+  var each = [];
+  for (var i = 1; i < fills.length; i++) {
+    var a = fills[i - 1], b = fills[i];
+    if (a.odometer && b.odometer && b.gallons > 0) { var m = (b.odometer - a.odometer) / b.gallons; if (m >= 5 && m <= 80) each.push({ id: b.id, mpg: m }); }
+  }
+  var lastFill = fills[fills.length - 1];
+  if (each.length) {
+    var last = each[each.length - 1].mpg, avg = each.reduce(function (s, x) { return s + x.mpg; }, 0) / each.length;
+    document.getElementById("mpg").textContent = last.toFixed(1);
+    document.getElementById("avg").textContent = avg.toFixed(1);
+    var priced = fills.filter(function (f) { return f.price || (f.usd && f.gallons); }).pop();
+    if (priced) document.getElementById("cpm").textContent = ((priced.price || priced.usd / priced.gallons) / avg * 100).toFixed(1);
+  }
+  document.getElementById("h").textContent = fills.length ? fills.length + " fill-ups" : "Fuel";
+  document.getElementById("sub").textContent = lastFill ? "Last at " + (lastFill.station || "a station") + ", " + day(lastFill.at) : "No fill-ups yet. Zeus's 6 arrive with the import.";
+  var mpgOf = {}; each.forEach(function (x) { mpgOf[x.id] = x.mpg; });
+  document.getElementById("fills").innerHTML = fills.length ? fills.slice().reverse().map(function (f) {
+    return '<div class="row"><div class="grow"><div class="title">' + esc(f.station || "Fill-up") + '</div><div class="small">' + day(f.at) +
+      (f.gallons ? ", " + f.gallons.toFixed(1) + " gal" : "") + (f.odometer ? ", " + f.odometer.toLocaleString("en-US") + " mi" : "") +
+      (mpgOf[f.id] ? ", " + mpgOf[f.id].toFixed(1) + " mpg" : "") + '</div></div><div class="n right">' +
+      (f.usd ? "$" + f.usd.toFixed(2) : f.price ? "$" + f.price.toFixed(3) : "") + '</div></div>';
+  }).join("") : '<div class="empty">Nothing logged yet.</div>';
+
+  document.getElementById("save").onclick = function () {
+    var g = num("g"), p = num("p"), o = num("o"), u = num("u"), s = document.getElementById("s").value.trim();
+    var msg = document.getElementById("msg");
+    if (!g && !u) { msg.textContent = "Gallons or the total, at least."; return; }
+    if (!u && g && p) u = Math.round(g * p * 100) / 100;
+    if (!p && g && u) p = Math.round(u / g * 1000) / 1000;
+    var r = w("INSERT INTO fills(at, station, gallons, price, usd, odometer, source) VALUES(?, ?, ?, ?, ?, ?, 'owner')", [Date.now(), s || null, g, p, u, o ? Math.round(o) : null]);
+    msg.textContent = r && r.error ? "Not saved: " + r.error : "Saved. It shows in the list after the next sync.";
+    if (!(r && r.error)) { ["g", "p", "o", "u", "s"].forEach(function (id) { document.getElementById(id).value = ""; }); if (window.zeus) zeus.haptic(); }
+  };
+
+  var week = Date.now() - 7 * 864e5;
+  var wk = trips("SELECT COUNT(*) AS n, COALESCE(SUM(miles), 0) AS m FROM trips WHERE start >= " + week)[0];
+  if (wk) { document.getElementById("wk").textContent = Math.round(wk.m); document.getElementById("trips").textContent = wk.n; }
+  if (lastFill) { var sf = trips("SELECT COALESCE(SUM(miles), 0) AS m FROM trips WHERE start >= " + lastFill.at)[0]; if (sf) document.getElementById("since").textContent = Math.round(sf.m); }
+  var recent = trips("SELECT start, miles, minutes FROM trips ORDER BY start DESC LIMIT 30");
+  document.getElementById("recent").innerHTML = recent.length ? recent.map(function (t) {
+    return '<div class="row"><div class="grow"><div class="title">' + day(t.start) + '</div><div class="small">' +
+      new Date(t.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) + (t.minutes ? ", " + Math.round(t.minutes) + " min" : "") +
+      '</div></div><div class="n right">' + (t.miles != null ? Number(t.miles).toFixed(1) : "") + '</div><div class="small">mi</div></div>';
+  }).join("") : '<div class="empty">No drives yet. The car\'s Bluetooth starts each one.</div>';
+
+  document.querySelectorAll(".tabs button").forEach(function (b) {
+    b.onclick = function () { document.querySelectorAll(".tabs button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); document.getElementById(x.dataset.t).hidden = x !== b; }); };
+  });
+})();
+</script></body></html>

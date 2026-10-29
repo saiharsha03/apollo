@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFE8A33D" android:pathData="M54,40 a14,14 0 1,0 0.01,0 z" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M76.00,54.00 L84.00,54.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M73.05,65.00 L79.98,69.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M65.00,73.05 L69.00,79.98" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M54.00,76.00 L54.00,84.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M43.00,73.05 L39.00,79.98" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M34.95,65.00 L28.02,69.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M32.00,54.00 L24.00,54.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M34.95,43.00 L28.02,39.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M43.00,34.95 L39.00,28.02" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M54.00,32.00 L54.00,24.00" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M65.00,34.95 L69.00,28.02" />
+    <path android:strokeColor="#FFE8A33D" android:strokeWidth="3.2" android:strokeLineCap="round" android:pathData="M73.05,43.00 L79.98,39.00" />
+</vector>

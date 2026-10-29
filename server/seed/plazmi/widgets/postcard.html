@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../pages/apollo.css">
+<style>
+html, body { height: 100%; background: transparent; }
+body { margin: 0; padding: 14px 16px; max-width: none; border-radius: 24px; background: var(--raised); overflow: hidden; display: flex; flex-direction: column; gap: 6px; }
+#t { font-size: 14px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; white-space: pre-wrap; }
+</style></head><body data-tap="open">
+<div class="kicker" style="margin:0">Pan's postcard</div>
+<div id="t" class="quiet">No postcard yet.</div>
+<div class="small" id="p"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  var r = q("SELECT text, place FROM feed WHERE kind = 'postcard' ORDER BY ts DESC LIMIT 1")[0];
+  if (r) { var t = document.getElementById("t"); t.textContent = r.text; t.className = ""; document.getElementById("p").textContent = r.place || ""; }
+})();
+</script></body></html>

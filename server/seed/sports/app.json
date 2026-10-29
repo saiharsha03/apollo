@@ -1,0 +1,10 @@
+{
+  "name": "sports",
+  "title": "Sports",
+  "icon": "trophy",
+  "about": "Olympia: the teams and drivers he follows, their fixtures, live scores and results, spoiler-safe when he asks. You fill the tables from the allowed score sources; Live shows a match in the Now Bar.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/next.html"],
+  "phone_tables": []
+}

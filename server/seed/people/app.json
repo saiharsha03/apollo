@@ -1,0 +1,10 @@
+{
+  "name": "people",
+  "title": "People",
+  "icon": "people",
+  "about": "The people in his life: who they are to him, birthdays (as routine rows), numbers, notes, when he last talked to them.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/birthdays.html"],
+  "phone_tables": []
+}

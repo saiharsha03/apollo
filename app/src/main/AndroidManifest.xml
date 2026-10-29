@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Ossa: Athena rings him on Apollo's own self-managed line; the call screen shows over the lock screen; his reply is by voice. -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Senses: asking him (Still watching?), the car's Bluetooth, a drive's GPS, apps used and unlocks. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <!-- Senses: his calendar (his Google account + the phone's own; writes only after his tap) and Health Connect reads. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_NUTRITION" />
+    <!-- Only the meals and weights he logs, each after his tap (phone_do log_food / log_weight). -->
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
+    <!-- Senses: his calls (routines.calls) and "started walking" (Play services' activity transitions). -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
+    <!-- Hermes: "call mom" finds the number; Live: the ongoing Live Update; Prometheus: installs an update after his tap. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- People: a birthday Athena saves goes on his Google contact (add_birthday, after his tap). -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Actions: timers and alarms in his Clock; reminders, timed notifications and put-off calls on exact alarms, armed
+         again after a reboot; Do Not Disturb; the background OK; his NFC tags; the Live chip promoted to the Now Bar. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <!-- Hermes: "open Spotify" reads the launcher's apps; the Ask sheet listens with the phone's recognizer. -->
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+        <!-- Actions: his Clock, the dialer, Messages, WhatsApp, Spotify. -->
+        <intent><action android:name="android.intent.action.SET_ALARM" /></intent>
+        <intent><action android:name="android.intent.action.SET_TIMER" /></intent>
+        <intent><action android:name="android.intent.action.DISMISS_ALARM" /></intent>
+        <intent><action android:name="android.intent.action.DIAL" /></intent>
+        <intent><action android:name="android.intent.action.SENDTO" /><data android:scheme="smsto" /></intent>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.spotify.music" />
+    </queries>
+
+    <!-- No backup: Calypso's files are ciphertext to Keystore keys that never leave this phone. -->
+    <application
+        android:name=".ApolloApp"
+        android:allowBackup="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.Apollo">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- FCM wake-ups: the data is {"t":"sync"}; anything else is dropped and content comes from GET /v1/sync. -->
+        <service android:name=".net.ApolloMessagingService" android:exported="false">
+            <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
+        </service>
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
+        <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
+        <meta-data android:name="delivery_metrics_exported_to_big_query_enabled" android:value="false" />
+
+        <!-- A mini app's camera photo (closet): the camera app writes one temp file in cache/camera, then it is kept in the app's phone folder. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.photos"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/photo_paths" />
+        </provider>
+
+        <service
+            android:name=".senses.Listener"
+            android:exported="true"
+            android:label="Apollo senses"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".senses.DriveService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+        <receiver
+            android:name=".senses.CarLink"
+            android:exported="true"
+            android:permission="android.permission.BLUETOOTH_CONNECT">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".senses.StillWatching$Answer"
+            android:exported="false" />
+        <!-- Stays and places: fused location updates and geofence transitions for his saved places. -->
+        <receiver android:name=".senses.PlaceReceiver" android:exported="false" />
+        <!-- Walks: activity transitions from Play services (a mutable PendingIntent to this receiver only). -->
+        <receiver android:name=".senses.WalkReceiver" android:exported="false" />
+        <!-- Share a photo, scan, PDF or text file to Apollo: its text goes to Athena as a document fact. -->
+        <activity
+            android:name=".senses.ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter android:label="Send to Athena">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+        </activity>
+        <!-- Health Connect opens this from its permission screen to say why Apollo reads health data. -->
+        <activity
+            android:name=".senses.HealthWhyActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Apollo">
+            <intent-filter><action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" /></intent-filter>
+        </activity>
+        <activity-alias
+            android:name=".senses.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".senses.HealthWhyActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+        <activity android:name=".actions.ApproveActivity" android:exported="false" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- Ossa: the call screen over the lock screen, from the call notification's full-screen intent. Not exported. -->
+        <activity
+            android:name=".ossa.OssaCallActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity="dev.apollo.ossa"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.Apollo" />
+        <!-- Ossa: Apollo's self-managed ConnectionService. Only Telecom can bind it. -->
+        <service
+            android:name=".ossa.OssaConnectionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService" />
+            </intent-filter>
+        </service>
+        <service android:name=".ossa.OssaCallService" android:exported="false" android:foregroundServiceType="phoneCall|microphone" />
+        <receiver android:name=".ossa.OssaReceiver" android:exported="false" />
+        <!-- The one Apollo widget (dev.apollo.apps.Widgets). -->
+        <receiver android:name=".apps.ApolloWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/apollo_widget_info" />
+        </receiver>
+        <activity android:name=".apps.WidgetSetupActivity" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
+        <!-- Ask Athena: the sheet (internal), its widget, and Apollo as the device assistant (side key). -->
+        <activity
+            android:name=".ask.AskActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Apollo.Sheet"
+            android:excludeFromRecents="true"
+            android:taskAffinity="dev.apollo.ask"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize|stateVisible" />
+        <receiver android:name=".ask.AskWidget" android:exported="false" android:label="@string/ask_hint">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/ask_widget_info" />
+        </receiver>
+        <!-- No exported ACTION_ASSIST activity: the side key comes through AssistService (BIND_VOICE_INTERACTION). -->
+        <service
+            android:name=".ask.AssistService"
+            android:exported="true"
+            android:label="@string/assist_label"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data android:name="android.voice_interaction" android:resource="@xml/assist_service" />
+            <intent-filter><action android:name="android.service.voice.VoiceInteractionService" /></intent-filter>
+        </service>
+        <service android:name=".ask.AssistSessionService" android:exported="true" android:permission="android.permission.BIND_VOICE_INTERACTION" />
+        <service android:name=".ask.AssistRecognitionService" android:exported="true">
+            <intent-filter><action android:name="android.speech.RecognitionService" /></intent-filter>
+            <meta-data android:name="android.speech" android:resource="@xml/assist_recognizer" />
+        </service>
+        <!-- Live: the Now Bar chip during a live match or drive; stops itself. -->
+        <service android:name=".live.LiveService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Live Update for a live sports match or a drive in progress, ends by itself" />
+        </service>
+        <!-- Actions (dev.apollo.actions): timed jobs and their re-arming after a reboot or an update; Undo on a free action;
+             a call he taps for; his NFC tags (apollo-tag://t/<random id>, written by Apollo); the screen lock (force-lock only);
+             the Ask Athena tile and Athena's three tiles. -->
+        <receiver android:name=".actions.LaterReceiver" android:exported="false" />
+        <receiver android:name=".actions.BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".actions.UndoReceiver" android:exported="false" />
+        <activity android:name=".actions.TapCallActivity" android:exported="false" android:excludeFromRecents="true" android:noHistory="true" android:theme="@android:style/Theme.NoDisplay" />
+        <activity android:name=".actions.TagActivity" android:exported="true" android:excludeFromRecents="true" android:noHistory="true" android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="apollo-tag" android:host="t" />
+            </intent-filter>
+        </activity>
+        <receiver android:name=".actions.LockAdmin" android:exported="true" android:label="Apollo screen lock" android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin" android:resource="@xml/lock_admin" />
+            <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
+        </receiver>
+        <service android:name=".actions.AskTile" android:exported="true" android:label="Ask Athena" android:icon="@drawable/ic_mic" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service android:name=".actions.AthenaTile1" android:exported="true" android:label="Athena 1" android:icon="@drawable/ic_launcher_sun" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service android:name=".actions.AthenaTile2" android:exported="true" android:label="Athena 2" android:icon="@drawable/ic_launcher_sun" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service android:name=".actions.AthenaTile3" android:exported="true" android:label="Athena 3" android:icon="@drawable/ic_launcher_sun" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <!-- Prometheus: the installer's answer for an update he tapped. -->
+        <receiver android:name=".prometheus.UpdateReceiver" android:exported="false" />
+    </application>
+</manifest>

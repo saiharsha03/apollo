@@ -1,0 +1,10 @@
+{
+  "name": "calendar",
+  "title": "Calendar",
+  "icon": "calendar",
+  "about": "One page over his calendar (what the phone reads) and Athena's routines (her calendar), with hide rules for what he doesn't want to see and the type of each day (office, remote, off, travel).",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": ["events"]
+}

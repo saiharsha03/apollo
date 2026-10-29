@@ -1,0 +1,10 @@
+{
+  "name": "security",
+  "title": "Security",
+  "icon": "shield",
+  "about": "The server's security alerts: SSH and Jellyfin logins, Pan's blocked connections and the media bot. The same alerts still go to Telegram.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": ["events"]
+}

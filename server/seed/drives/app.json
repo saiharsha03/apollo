@@ -1,0 +1,10 @@
+{
+  "name": "drives",
+  "title": "Drives",
+  "icon": "car",
+  "about": "Every drive the car's Bluetooth started: route, miles, minutes, the events the phone felt and a score.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": []
+}

@@ -1,0 +1,10 @@
+{
+  "name": "dawn",
+  "title": "Dawn",
+  "icon": "sunrise",
+  "about": "Apollo's first run and setup checklist: what's done, what's left and how to fix each step. Apollo reports what it can see; Athena adds steps.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/setup.html"],
+  "phone_tables": ["status"]
+}

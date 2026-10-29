@@ -1,0 +1,10 @@
+{
+  "name": "themes",
+  "title": "Themes",
+  "icon": "palette",
+  "about": "Apollo's look as theme files: colours for light and dark, fonts, corner radius, the sky. phone_setting theme=<name> switches it live.",
+  "section": false,
+  "pages": [],
+  "widgets": [],
+  "phone_tables": []
+}

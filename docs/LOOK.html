@@ -1,0 +1,228 @@
+<title>Apollo Looks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: three screens of one look. Home = living weather sky with Athena's owl in it, glass cards, a Dynamic Island. Chat = Muse-style: avatar on top, soft bubbles, inline approval cards. Unfolded = both side by side. */
+:root{
+  --page:#eef1f5; --text:#13161a; --dim:#5f6770;
+  --chat:#f7f8fa; --bubble:#e9ecf0; --me:#1d1f23; --ink:#14171b; --soft:#6b737c; --line:#e1e5ea;
+  --blue:#2f63ea;                       /* Allow, the one action colour */
+  --red:#d71921;                        /* Nothing red: only "needs you" */
+  --glass:rgba(255,255,255,.18); --edge:rgba(255,255,255,.42);
+  --dots:"Doto", "Courier New", monospace;
+  --body:"Figtree", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0e1013;--text:#e8ebee;--dim:#959ca4;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0e1013;--text:#e8ebee;--dim:#959ca4;color-scheme:dark}
+body{background:var(--page);color:var(--text);font-family:var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+header{max-width:1220px;margin:0 auto 22px}
+h1{font-family:var(--dots);font-weight:900;font-size:44px;margin:0;letter-spacing:1px}
+header p{color:var(--dim);max-width:68ch;margin:6px 0 0;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:30px;max-width:1220px;margin:0 auto;align-items:flex-start}
+figure{margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+figcaption{color:var(--dim);font-size:13.5px;line-height:1.45;max-width:340px}
+figcaption b{color:var(--text);font-weight:600}
+.phone{position:relative;overflow:hidden;border-radius:36px;box-shadow:0 0 0 7px #0a0b0d,0 22px 44px rgba(0,0,0,.22);isolation:isolate}
+.cover{width:min(330px,100%);aspect-ratio:9/20}
+.inner{width:min(660px,100%);aspect-ratio:1/1.06;border-radius:28px}
+canvas.sky{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+
+/* the owl */
+.owl{display:block}
+.owl .blink{animation:blink 5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.owl .bob{animation:bob 4s ease-in-out infinite;transform-origin:50% 100%}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+
+/* island */
+.island{background:#000;color:#fff;border-radius:20px;height:30px;display:inline-flex;align-items:center;gap:7px;padding:0 12px 0 6px;font-size:11.5px;font-weight:500}
+
+/* HOME */
+.home .ui{position:absolute;inset:0;display:flex;flex-direction:column;color:#fff;padding:12px 14px}
+.home .top{display:flex;justify-content:center}
+.home .wx{padding:20px 4px 0}
+.home .place{font-size:13px;opacity:.9}
+.home .temp{font-family:var(--dots);font-weight:900;font-size:92px;line-height:.9;letter-spacing:-2px;margin-top:4px}
+.home .cond{font-size:14.5px;opacity:.92}
+.home .clocks{font-size:12px;opacity:.8;margin-top:8px}
+.home .clocks b{font-family:var(--dots);font-weight:900;font-size:14px;margin-right:3px}
+.home .perch{position:absolute;right:20px;top:150px}
+.glass{background:var(--glass);border:1px solid var(--edge);border-radius:22px;backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 8px 22px rgba(0,0,0,.12);position:relative}
+.home .stack{display:flex;flex-direction:column;gap:9px;margin-top:auto}
+.home .card{padding:13px 15px}
+.home .k{font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;opacity:.75}
+.home .k.need{opacity:1}
+.home .k.need::before{content:"";display:inline-block;width:6px;height:6px;background:var(--red);margin-right:6px;vertical-align:1px}
+.home .t{font-size:16.5px;font-weight:600;line-height:1.25;margin-top:2px}
+.home .s{font-size:12.5px;opacity:.8;margin-top:2px}
+.home .two{display:flex;gap:8px;margin-top:9px}
+.home .two span{flex:1;text-align:center;padding:8px 0;border-radius:14px;font-size:13px;font-weight:600;background:rgba(255,255,255,.2)}
+.home .two span.go{background:#fff;color:#111}
+.dock{display:flex;justify-content:space-around;padding:10px 4px;border-radius:24px;font-size:12.5px;font-weight:500}
+.dock span{opacity:.72}.dock span.on{opacity:1;font-weight:700}
+
+/* CHAT (Muse-style) */
+.chat{background:var(--chat);color:var(--ink)}
+.chat .ui{position:absolute;inset:0;display:flex;flex-direction:column;padding:12px 14px}
+.chat .bar{display:flex;justify-content:space-between;align-items:center}
+.chat .menu{width:34px;height:34px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);display:grid;place-items:center;font-size:14px}
+.chat .who{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:-4px}
+.chat .name{font-size:12px;font-weight:600;background:#fff;padding:3px 10px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.chat .flow{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.chat .b{background:var(--bubble);border-radius:18px;padding:10px 13px;font-size:14px;line-height:1.4;max-width:86%}
+.chat .b.me{background:var(--me);color:#fff;align-self:flex-end}
+.approve{background:#fff;border-radius:22px;box-shadow:0 2px 14px rgba(0,0,0,.08);padding:14px;display:flex;flex-direction:column;gap:10px}
+.approve .h{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.35}
+.approve .h svg{flex:none;margin-top:2px}
+.approve .sub{font-size:12.5px;color:var(--soft)}
+.approve .msg{border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.4}
+.approve .msg .to{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--soft);margin-bottom:4px}
+.approve .btns{display:flex;gap:8px}
+.approve .btns span{flex:1;text-align:center;padding:11px 0;border-radius:16px;font-weight:600;font-size:14px;background:#eef0f3}
+.approve .btns span.allow{background:var(--blue);color:#fff}
+.chat .compose{margin-top:auto;background:#fff;border-radius:22px;padding:11px 14px;display:flex;justify-content:space-between;font-size:13.5px;color:var(--soft);box-shadow:0 1px 6px rgba(0,0,0,.06)}
+
+/* UNFOLDED */
+.inner .split{position:absolute;inset:0;display:flex}
+.inner .left{flex:1;position:relative}
+.inner .right{width:52%;background:var(--chat);color:var(--ink);position:relative}
+.inner .left .ui,.inner .right .ui{position:absolute;inset:0}
+.note{max-width:1220px;margin:26px auto 0;color:var(--dim);font-size:13px;line-height:1.55}
+@media (prefers-reduced-motion: reduce){.owl .blink,.owl .bob{animation:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="owl" viewBox="0 0 64 64">
+      <g class="bob">
+        <path d="M14 28c0-11 8-19 18-19s18 8 18 19v12c0 10-8 17-18 17s-18-7-18-17z" fill="#efe3cf"/>
+        <path d="M17 13l4 7M47 13l-4 7" stroke="#e2d2b8" stroke-width="5" stroke-linecap="round"/>
+        <ellipse cx="32" cy="45" rx="9" ry="8" fill="#f8f0e2"/>
+        <g class="blink" style="transform-origin:32px 30px">
+          <circle cx="25" cy="30" r="3.2" fill="#1b1d21"/>
+          <circle cx="39" cy="30" r="3.2" fill="#1b1d21"/>
+          <circle cx="26" cy="29" r="1" fill="#fff"/>
+          <circle cx="40" cy="29" r="1" fill="#fff"/>
+        </g>
+        <path d="M30 35l2 3 2-3z" fill="#d9a35a"/>
+        <path d="M27 40c3 2 7 2 10 0" stroke="#c9b69a" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<header>
+  <h1>APOLLO</h1>
+  <p>Athena gets a face: a small owl in Muse's style. She lives in the living weather sky on Home, shrinks into the Dynamic Island elsewhere, and sits on top of Chat like Muse. Approvals come as cards right in the chat. Example content.</p>
+</header>
+
+<div class="row">
+  <figure>
+    <div class="phone cover home"><canvas class="sky" data-mode="dusk-rain"></canvas>
+      <div class="ui">
+        <div class="top"><span class="island"><svg class="owl" width="22" height="22"><use href="#owl"/></svg>Reading your mail</span></div>
+        <div class="wx">
+          <div class="place">Boston</div>
+          <div class="temp">48°</div>
+          <div class="cond">Light rain from 9 PM</div>
+          <div class="clocks"><b>6:54</b>PM here &nbsp; <b>5:24</b>AM Mumbai</div>
+        </div>
+        <div class="perch">
+          <svg class="owl" width="78" height="78"><use href="#owl"/></svg>
+          <svg width="78" height="40" viewBox="0 0 78 40" style="margin-top:-62px;display:block" aria-hidden="true"><path d="M8 24 Q39 -6 70 24 Z" fill="#2c3e64"/><line x1="39" y1="9" x2="39" y2="40" stroke="#2c3e64" stroke-width="2.5"/></svg>
+        </div>
+        <div class="stack">
+          <div class="glass card"><div class="k need">Needs you</div><div class="t">Dentist moved to Thu 3:30 PM</div><div class="s">Iris found it in your mail.</div><div class="two"><span>Not now</span><span class="go">Add to calendar</span></div></div>
+          <div class="glass card"><div class="k">Tonight</div><div class="t">Call home at 9:30</div><div class="s">7:00 AM in Mumbai.</div></div>
+          <div class="glass dock"><span class="on">Home</span><span>Chat</span><span>Apps</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Home.</b> Live sky, rain and all. Athena perches in it with an umbrella; the island says what she's doing.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone cover chat">
+      <div class="ui">
+        <div class="bar"><span class="menu">≡</span><span class="who"><svg class="owl" width="52" height="52"><use href="#owl"/></svg><span class="name">Athena</span></span><span style="width:34px"></span></div>
+        <div class="flow">
+          <div class="b">Amma asked on WhatsApp if you're home for Diwali. Want me to reply?</div>
+          <div class="b me">Yes, say I'll call her tonight</div>
+          <div class="approve">
+            <div class="h"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14171b" stroke-width="1.8"><path d="M4 12h12M12 6l6 6-6 6"/></svg><div><b>Athena wants to send a message</b><div class="sub">It goes from your WhatsApp.</div></div></div>
+            <div class="msg"><div class="to">To Amma</div>Can't make it home for Diwali this year. I'll call you tonight at 9:30 your morning.</div>
+            <div class="btns"><span>Deny</span><span class="allow">Send</span></div>
+          </div>
+        </div>
+        <div class="compose"><span>Message Athena, Iris or Atlas</span><span>Send</span></div>
+      </div>
+    </div>
+    <figcaption><b>Chat.</b> Muse-style: her face on top, soft bubbles, and anything that leaves the phone shows up as a card to Deny or Send. Money asks for your fingerprint.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone inner">
+      <div class="split">
+        <div class="left"><canvas class="sky" data-mode="day-clear"></canvas>
+          <div class="ui home" style="position:absolute;inset:0;display:flex;flex-direction:column;color:#fff;padding:16px">
+            <div class="top" style="justify-content:flex-start"><span class="island"><svg class="owl" width="22" height="22"><use href="#owl"/></svg>All caught up</span></div>
+            <div class="wx"><div class="place">Boston</div><div class="temp" style="font-size:80px">61°</div><div class="cond">Clear, high 63°</div></div>
+            <div class="perch" style="top:120px;right:18px"><svg class="owl" width="66" height="66"><use href="#owl"/></svg></div>
+            <div class="stack">
+              <div class="glass card"><div class="k">Drive</div><div class="t">Home to office, 23 min</div><div class="s">Quicker than your usual 27.</div></div>
+              <div class="glass dock"><span class="on">Home</span><span>Chat</span><span>Apps</span><span>More</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="right">
+          <div class="ui chat" style="position:absolute;inset:0;display:flex;flex-direction:column;padding:16px;background:var(--chat)">
+            <div class="who" style="align-self:center"><svg class="owl" width="46" height="46"><use href="#owl"/></svg><span class="name">Athena</span></div>
+            <div class="flow">
+              <div class="b me">Is the Seattle trip booked?</div>
+              <div class="b">Flights yes, Dec 24 out, Jan 3 back. No hotel yet for Dec 24 to 27. Want me to ask Iris for options?</div>
+              <div class="approve"><div class="h"><div><b>Ask Iris for hotels</b><div class="sub">Under $200 a night, near Capitol Hill.</div></div></div><div class="btns"><span>Not now</span><span class="allow">Ask Iris</span></div></div>
+            </div>
+            <div class="compose"><span>Message Athena</span><span>Send</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Unfolded.</b> Sky and Home on the left, Chat with Athena on the right.</figcaption>
+  </figure>
+</div>
+<p class="note">Next if you like it: her outfits and name are yours to change (Muse-style), and her pose follows her status: reading, listening, sleeping at night, umbrella in rain, holding a red square when something needs you.</p>
+
+<script>
+// Living sky: gradient by time of day, drifting clouds, rain when it rains, the city along the bottom.
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const skies = { "dusk-rain": ["#1f2f4d", "#45557a", "#8a7d93", "#c8907a"], "day-clear": ["#2f7fd6", "#5aa2ea", "#9cc9f3", "#d8ecfb"] };
+  document.querySelectorAll("canvas.sky").forEach(cv => {
+    const ctx = cv.getContext("2d"), mode = cv.dataset.mode, rain = mode.includes("rain");
+    let w, h, t = 0;
+    const drops = Array.from({length: 90}, () => [Math.random(), Math.random(), .6 + Math.random() * .8]);
+    const clouds = Array.from({length: 5}, (_, i) => [Math.random(), .1 + i * .08, .5 + Math.random() * .7]);
+    function size(){ const r = cv.getBoundingClientRect(); w = cv.width = r.width * devicePixelRatio; h = cv.height = r.height * devicePixelRatio; }
+    function frame(){
+      const g = ctx.createLinearGradient(0, 0, 0, h); skies[mode].forEach((c, i, a) => g.addColorStop(i / (a.length - 1), c));
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      if (!rain) { const sg = ctx.createRadialGradient(w * .8, h * .1, 0, w * .8, h * .1, w * .4); sg.addColorStop(0, "rgba(255,248,220,.95)"); sg.addColorStop(.12, "rgba(255,244,210,.55)"); sg.addColorStop(1, "rgba(255,244,210,0)"); ctx.fillStyle = sg; ctx.fillRect(0, 0, w, h); }
+      for (const c of clouds) {
+        const x = ((c[0] * w + t * .25 * c[2] * devicePixelRatio) % (w * 1.4)) - w * .2, y = c[1] * h;
+        ctx.fillStyle = rain ? "rgba(210,215,230,.16)" : "rgba(255,255,255,.35)";
+        for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(x + k * 34 * devicePixelRatio, y + Math.sin(k) * 8 * devicePixelRatio, 46 * c[2] * devicePixelRatio, 18 * c[2] * devicePixelRatio, 0, 0, Math.PI * 2); ctx.fill(); }
+      }
+      if (rain) { ctx.strokeStyle = "rgba(220,230,245,.35)"; ctx.lineWidth = devicePixelRatio;
+        for (const d of drops) { const x = d[0] * w, y = ((d[1] * h + t * 6 * d[2] * devicePixelRatio) % (h + 40)) - 20; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3 * devicePixelRatio, y + 14 * d[2] * devicePixelRatio); ctx.stroke(); } }
+      ctx.fillStyle = rain ? "rgba(14,20,32,.85)" : "rgba(40,70,110,.32)";
+      ctx.beginPath(); ctx.moveTo(0, h);
+      const b = [.06,.14,.1,.2,.12,.26,.16,.32,.14,.22,.1,.18,.24,.12,.16,.08];
+      b.forEach((v, i) => { const x0 = i / b.length * w, x1 = (i + 1) / b.length * w; ctx.lineTo(x0, h - v * h * .4); ctx.lineTo(x1, h - v * h * .4); });
+      ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+      t++; if (!reduce) requestAnimationFrame(frame);
+    }
+    size(); addEventListener("resize", size); frame();
+  });
+})();
+</script>

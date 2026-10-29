@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  @font-face { font-family: "Doto"; src: url(fonts/doto.ttf); font-weight: 100 900; }
+  .clocks { display: flex; gap: 22px; margin: 10px 0 4px; }
+  .clocks div { font-size: 12px; color: var(--quiet); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .clocks b { display: block; font-family: "Doto", var(--text); font-weight: 900; font-size: 30px; color: var(--ink); letter-spacing: 0; text-transform: none; line-height: 1.1; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 16px; }
+  .c { background: var(--raised); border: 1px solid var(--line); border-radius: 20px; padding: 12px 14px; }
+  .c .k { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--quiet); }
+  .c.need .k { color: var(--alarm); }
+  .c .t { font-size: 22px; font-weight: 700; margin-top: 2px; line-height: 1.2; }
+  .c .x { font-size: 13px; color: var(--quiet); margin-top: 2px; }
+  .text h2 { font-size: 13px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--quiet); margin: 22px 0 6px; }
+  .text h3, .text h4 { font-size: 16px; margin: 16px 0 4px; }
+  .text p { font-size: 16px; line-height: 1.5; }
+  .text ul { padding-left: 20px; margin: 6px 0; } .text li { margin: 4px 0; font-size: 16px; }
+  .text a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker" style="margin-top:4px" id="date"></div>
+  <h1 id="title">Good morning</h1>
+  <div class="clocks"><div>Boston<b id="buf">--</b></div><div>India<b id="ind">--</b></div></div>
+  <div class="cards" id="cards"></div>
+  <div class="text" id="text"></div>
+  <div id="earlier"></div>
+</div>
+<script>
+(function () {
+  function clock(tz) { return new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZone: tz }).replace(/\s?[AP]M$/i, ""); }
+  function clocks() { $("buf").textContent = clock("America/New_York"); $("ind").textContent = clock("Asia/Kolkata"); }
+  function bostonDate() { return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }); }
+  function nice(d) { return new Date(d + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }); }
+
+  function show(date) {
+    var b = q("SELECT date, md, cards, seen FROM briefs WHERE date = " + lit(date))[0];
+    var isToday = date === bostonDate();
+    $("date").textContent = nice(date);
+    $("title").textContent = isToday ? (new Date().getHours() < 12 ? "Good morning" : "Today") : "Brief";
+    var cards = [];
+    try { cards = JSON.parse((b && b.cards) || "[]"); } catch (e) {}
+    $("cards").innerHTML = cards.map(function (c) {
+      return '<div class="c' + (c.need ? " need" : "") + '"><div class="k">' + esc(c.kicker || "") + '</div><div class="t">' + esc(c.title || "") +
+        "</div>" + (c.text ? '<div class="x">' + esc(c.text) + "</div>" : "") + "</div>";
+    }).join("");
+    $("text").innerHTML = b && b.md ? md(b.md) : '<p class="empty">' + (isToday ? "Today's brief isn't written yet. Athena writes it before your first unlock after 5 AM." : "No brief that day.") + "</p>";
+    if (b && isToday && !b.seen) write("UPDATE briefs SET seen = ? WHERE date = ? AND seen IS NULL", [Date.now(), date]);
+    var past = q("SELECT date FROM briefs WHERE date <> " + lit(date) + " ORDER BY date DESC LIMIT 7");
+    $("earlier").innerHTML = past.length ? '<div class="kicker">Earlier</div><div class="card">' + past.map(function (p) {
+      return '<div class="row tap" data-d="' + esc(p.date) + '"><div class="grow">' + nice(p.date) + "</div></div>";
+    }).join("") + "</div>" : "";
+    document.querySelectorAll("[data-d]").forEach(function (r) { r.onclick = function () { show(r.dataset.d); window.scrollTo(0, 0); }; });
+  }
+
+  clocks(); setInterval(clocks, 30000);
+  show(bostonDate());
+})();
+</script>
+</body>
+</html>

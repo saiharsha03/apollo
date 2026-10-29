@@ -1,0 +1,8 @@
+# apollo-server's direct dependencies. requirements.txt is the hash-pinned lock built from this file
+# (pip-compile --generate-hashes on the VPS); deploy/install.sh installs it with --require-hashes.
+fastapi==0.115.12
+uvicorn==0.54.0
+# The phone's terminal and remote desktop are WebSockets; uvicorn needs it to speak them.
+wsproto==1.3.2
+anthropic
+cryptography==50.0.2

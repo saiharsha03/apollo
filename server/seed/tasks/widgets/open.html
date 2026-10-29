@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../pages/apollo.css">
+<style>
+html, body { height: 100%; background: transparent; }
+body { margin: 0; padding: 14px 16px; max-width: none; border-radius: 24px; background: var(--raised); overflow: hidden; }
+.t { font-size: 14px; padding: 5px 0; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t:last-child { border: 0; }
+</style></head><body data-tap="open">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="kicker" style="margin:0">Tasks</div><div class="n mid" id="n">0</div></div>
+<div id="l"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+  var d = new Date(), today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  var open = "status = 'pending' AND lower(COALESCE(context, '')) NOT IN ('money', 'legal', 'health')";
+  document.getElementById("n").textContent = (q("SELECT COUNT(*) AS n FROM tasks WHERE " + open)[0] || { n: 0 }).n;
+  document.getElementById("l").innerHTML = q("SELECT title, due_date FROM tasks WHERE " + open + " ORDER BY CASE WHEN due_date < '" + today +
+    "' OR priority = 'high' THEN 0 WHEN due_date = '" + today + "' THEN 1 WHEN blocked_on_owner = 1 THEN 2 ELSE 3 END, due_date IS NULL, due_date LIMIT 5")
+    .map(function (r) { return '<div class="t' + (r.due_date && r.due_date < today ? " red" : "") + '">' + esc(r.title) + '</div>'; }).join("") || '<div class="small">All clear</div>';
+})();
+</script></body></html>

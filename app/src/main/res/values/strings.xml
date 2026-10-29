@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Apollo</string>
+    <string name="widget_about">Anything Athena draws for you: a fixed view or Dynamic.</string>
+</resources>

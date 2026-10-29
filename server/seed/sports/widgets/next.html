@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../pages/apollo.css">
+<style>
+html, body { height: 100%; background: transparent; }
+body { margin: 0; padding: 14px 16px 14px 20px; max-width: none; border-radius: 24px; background: var(--mine); color: #fff; overflow: hidden; position: relative;
+  display: flex; flex-direction: column; justify-content: space-between; }
+.strip { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--line); }
+.k { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,.62); }
+.t { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n { font-size: 40px; line-height: 1; color: #fff; }
+.n small { font: 600 16px "Figtree", system-ui, sans-serif; margin: 0 6px 0 2px; }
+.s { font-size: 12px; color: rgba(255,255,255,.62); }
+</style></head><body data-tap="open">
+<div class="strip" id="strip"></div>
+<div><div class="k" id="k">Next up</div><div class="t" id="t">No fixtures yet</div></div>
+<div class="n" id="n"></div>
+<div class="s" id="s"></div>
+<script>
+(function () {
+  // Drawn every 15-30 min: the countdown is to the minute only at draw time, so it shows days and hours, not minutes.
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  var m = q("SELECT m.title, m.league, m.sport, m.starts_at, m.away_id, m.status, m.home_score, m.away_score, m.detail, m.hide_score, h.name AS hn, h.color AS hc, a.name AS an, a.color AS ac FROM matches m LEFT JOIN teams h ON h.id = m.home_id " +
+            "LEFT JOIN teams a ON a.id = m.away_id WHERE m.status IN ('scheduled', 'live') AND m.starts_at > " + (Date.now() - 4 * 3600e3) + " ORDER BY m.status = 'live' DESC, m.starts_at LIMIT 1")[0];
+  if (!m) return;
+  var c = m.hc || m.ac;
+  if (/^#[0-9a-fA-F]{6}$/.test(c || "")) document.getElementById("strip").style.background = c;
+  document.getElementById("k").textContent = m.league || m.sport;
+  document.getElementById("t").textContent = !m.away_id ? (m.title || m.hn || m.league) : (m.hn || "?") + " v " + (m.an || "?");
+  var min = Math.max(0, Math.round((m.starts_at - Date.now()) / 60000));
+  if (m.status === "live") {
+    if (!m.hide_score && (m.home_score || m.away_score)) document.getElementById("n").textContent = (m.home_score || "-") + " - " + (m.away_score || "-");
+    document.getElementById("s").textContent = "Live" + (m.detail && !m.hide_score ? ", " + m.detail : "");
+    return;
+  }
+  document.getElementById("n").innerHTML = min <= 0 ? "" : min >= 1440 ? Math.floor(min / 1440) + "<small>d</small>" + Math.floor(min / 60) % 24 + "<small>h</small>" : Math.floor(min / 60) + "<small>h</small>" + min % 60 + "<small>m</small>";
+  document.getElementById("s").textContent = min <= 0 ? "Live now" : new Date(m.starts_at).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" });
+})();
+</script></body></html>

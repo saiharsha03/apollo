@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../pages/apollo.css"><script src="/kit/zeus.js"></script>
+<style>
+html, body { height: 100%; background: transparent; }
+body { margin: 0; padding: 14px 16px; max-width: none; border-radius: 24px; background: var(--raised); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+.two { display: flex; gap: 18px; }
+</style></head><body data-tap="open">
+<div class="kicker" style="margin:0">Fuel</div>
+<div class="two"><div><div class="n mid" id="m">--</div><div class="small">mpg</div></div><div><div class="n mid" id="s">--</div><div class="small">mi since fill</div></div></div>
+<div class="small" id="l"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  var f = q("SELECT at, station, gallons, odometer FROM fills ORDER BY at DESC LIMIT 2");
+  if (!f.length) return;
+  if (f[1] && f[0].odometer && f[1].odometer && f[0].gallons > 0) {
+    var m = (f[0].odometer - f[1].odometer) / f[0].gallons;
+    if (m >= 5 && m <= 80) document.getElementById("m").textContent = m.toFixed(1);
+  }
+  var t = window.zeus ? zeus.peek("drives", "SELECT COALESCE(SUM(miles), 0) AS m FROM trips WHERE start >= " + f[0].at) : null;
+  if (t && t.rows && t.rows[0]) document.getElementById("s").textContent = Math.round(t.rows[0].m);
+  document.getElementById("l").textContent = "Last fill " + new Date(f[0].at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + (f[0].station ? ", " + f[0].station : "");
+})();
+</script></body></html>

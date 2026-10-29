@@ -1,0 +1,10 @@
+{
+  "name": "theogony",
+  "title": "Theogony",
+  "icon": "question",
+  "about": "Athena's questions for Owner, to know him better. He answers on the page; each answer becomes facts in Memory.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": []
+}

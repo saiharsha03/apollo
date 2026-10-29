@@ -1,0 +1,10 @@
+{
+  "name": "usage",
+  "title": "Usage",
+  "icon": "gauge",
+  "about": "Metron: how much of each allowance is used. Iris's Claude 5-hour and weekly windows, Atlas's Codex windows, and Athena's Managed Agents spend against the $200 monthly credit.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/credit.html"],
+  "phone_tables": []
+}

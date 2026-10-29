@@ -1,0 +1,12 @@
+{
+  "name": "pixel-demo",
+  "title": "Pixel demo",
+  "icon": "cloud",
+  "about": "Iris rains near Athena: a two-character stage drawn with apollo.pixel (docs/PIXEL.md).",
+  "section": false,
+  "pages": [
+    "pages/home.html"
+  ],
+  "widgets": [],
+  "phone_tables": []
+}

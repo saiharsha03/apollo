@@ -1,0 +1,98 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Money</title><link rel="stylesheet" href="apollo.css">
+<style>
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.cat { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 8px 0; }
+.cat .bar { grid-column: 1 / -1; }
+svg { width: 100%; height: auto; display: block; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Money</div>
+<div class="head">
+  <div><h1>This month</h1><div class="small" id="pace"></div></div>
+  <div class="right"><div class="n big" id="spent">--</div></div>
+</div>
+<div class="tabs"><button data-t="overview" aria-pressed="true">Overview</button><button data-t="list">Transactions</button><button data-t="recurring">Bills and subscriptions</button></div>
+
+<section id="overview">
+  <div class="kicker">Day by day</div>
+  <div class="card"><svg id="line" viewBox="0 0 320 140" role="img" aria-label="Spending this month against last month"></svg>
+    <div class="small"><span style="color:var(--ink)">This month</span>, last month in grey</div></div>
+  <div class="kicker">By category</div>
+  <div class="card" id="cats"></div>
+</section>
+<section id="list" hidden><div class="kicker">Last 60 days</div><div class="card" id="txns"></div></section>
+<section id="recurring" hidden>
+  <div class="kicker">Bills</div><div class="card" id="bills"></div>
+  <div class="kicker">Subscriptions</div><div class="card" id="subs"></div>
+</section>
+<script>
+(function () {
+  var A = window.apollo;
+  function q(s) { var r = A ? A.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function usd(v, cents) { v = Number(v) || 0; return "$" + v.toLocaleString("en-US", { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: cents ? 2 : 0 }); }
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  var SPEND = "kind = 'spend' AND not_counted = 0";
+  var now = new Date(), day = now.getDate();
+  var m0 = ymd(new Date(now.getFullYear(), now.getMonth(), 1)), m1 = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+  var p0 = ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+  function daily(from, to) {
+    var out = {};
+    q("SELECT CAST(substr(date, 9, 2) AS INTEGER) AS d, SUM(CASE WHEN kind = 'refund' THEN -amount ELSE amount END) AS s FROM transactions " +
+      "WHERE (" + SPEND + " OR kind = 'refund') AND not_counted = 0 AND date >= '" + from + "' AND date < '" + to + "' GROUP BY d")
+      .forEach(function (r) { out[r.d] = r.s; });
+    return out;
+  }
+  function cumulative(byDay, upto) { var t = 0, a = []; for (var i = 1; i <= upto; i++) { t += byDay[i] || 0; a.push(t); } return a; }
+  var thisM = cumulative(daily(m0, m1), day);
+  var lastDays = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+  var lastM = cumulative(daily(p0, m0), lastDays);
+  var spent = thisM[thisM.length - 1] || 0, lastSame = lastM[Math.min(day, lastDays) - 1] || 0;
+  document.getElementById("spent").textContent = usd(spent);
+  document.getElementById("pace").textContent = lastSame ? (spent > lastSame ? usd(spent - lastSame) + " more than" : usd(lastSame - spent) + " less than") +
+    " last month by day " + day : "Nothing from last month to compare yet";
+
+  // Two cumulative lines on one scale: this month in ink, last month in grey.
+  var svg = document.getElementById("line"), W = 320, H = 140, pad = 18, max = Math.max(1, Math.max.apply(null, lastM.concat(thisM)));
+  function path(a) { return a.map(function (v, i) { return (i ? "L" : "M") + (pad + i * (W - 2 * pad) / 30).toFixed(1) + " " + (H - pad - v / max * (H - 2 * pad)).toFixed(1); }).join(" "); }
+  svg.innerHTML = '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + (H - pad) + '" y2="' + (H - pad) + '" stroke="var(--line)"/>' +
+    '<path d="' + path(lastM) + '" fill="none" stroke="var(--line)" stroke-width="2.5"/>' +
+    '<path d="' + path(thisM) + '" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<text x="' + pad + '" y="' + (H - 4) + '">1</text><text x="' + (W - pad) + '" y="' + (H - 4) + '" text-anchor="end">31</text>' +
+    '<text x="' + pad + '" y="12">' + usd(max) + '</text>';
+
+  var cats = q("SELECT COALESCE(category, 'Other') AS c, SUM(amount) AS s FROM transactions WHERE " + SPEND + " AND date >= '" + m0 + "' AND date < '" + m1 + "' GROUP BY c ORDER BY s DESC");
+  var top = cats.length ? cats[0].s : 1;
+  document.getElementById("cats").innerHTML = cats.length ? cats.map(function (r) {
+    return '<div class="cat"><div>' + esc(r.c) + '</div><div class="n">' + usd(r.s) + '</div><div class="bar"><i style="width:' + Math.max(2, r.s / top * 100) + '%"></i></div></div>';
+  }).join("") : '<div class="empty">Nothing this month yet. Iris syncs owner.db here.</div>';
+
+  var since = ymd(new Date(now.getTime() - 60 * 864e5));
+  var tx = q("SELECT date, amount, merchant, category, kind, status, not_counted FROM transactions WHERE date >= '" + since + "' ORDER BY date DESC, id DESC LIMIT 300");
+  document.getElementById("txns").innerHTML = tx.length ? tx.map(function (r) {
+    var sign = r.kind === "refund" || r.kind === "income" ? "+" : "";
+    return '<div class="row"><div class="grow"><div class="title">' + esc(r.merchant || r.category || "Charge") + '</div><div class="small">' + esc(r.date) + "  " +
+      esc(r.category || "") + (r.status === "pending" ? "  pending" : "") + (r.not_counted ? "  not counted" : "") + '</div></div><div class="n right">' + sign + usd(r.amount, true) + '</div></div>';
+  }).join("") : '<div class="empty">No transactions in the last 60 days.</div>';
+
+  var today = ymd(now);
+  var bills = q("SELECT name, amount, due_date, autopay, paid_at FROM bills ORDER BY due_date");
+  document.getElementById("bills").innerHTML = bills.length ? bills.map(function (r) {
+    var late = r.due_date && r.due_date < today && !r.paid_at;
+    return '<div class="row"><div class="grow"><div class="title">' + esc(r.name) + '</div><div class="small' + (late ? ' red' : '') + '">' +
+      (r.paid_at ? "Paid " + esc(r.paid_at) : "Due " + esc(r.due_date || "?")) + (r.autopay ? "  autopay" : "") + '</div></div><div class="n right">' + (r.amount != null ? usd(r.amount, true) : "") + '</div></div>';
+  }).join("") : '<div class="empty">No bills yet.</div>';
+  var subs = q("SELECT name, amount, cycle, next FROM subscriptions WHERE active = 1 ORDER BY next");
+  document.getElementById("subs").innerHTML = subs.length ? subs.map(function (r) {
+    return '<div class="row"><div class="grow"><div class="title">' + esc(r.name) + '</div><div class="small">' + esc(r.cycle || "") + (r.next ? ", renews " + esc(r.next) : "") +
+      '</div></div><div class="n right">' + (r.amount != null ? usd(r.amount, true) : "") + '</div></div>';
+  }).join("") : '<div class="empty">No subscriptions yet.</div>';
+
+  document.querySelectorAll(".tabs button").forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll(".tabs button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); document.getElementById(x.dataset.t).hidden = x !== b; });
+    };
+  });
+})();
+</script></body></html>

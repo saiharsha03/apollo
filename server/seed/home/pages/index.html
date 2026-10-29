@@ -1,0 +1,106 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Home</title><link rel="stylesheet" href="apollo.css"><script src="/kit/zeus.js"></script>
+<style>
+.tile { background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; text-align: left; display: flex; flex-direction: column;
+  gap: 18px; min-height: 104px; font-weight: 400; color: var(--ink); width: 100%; }
+.tile.on { background: var(--ink); color: var(--raised); border-color: var(--ink); }
+.tile.on .small { color: var(--raised); opacity: .7; }
+.tile.off-line { opacity: .45; }
+.tile .name { font-weight: 600; font-size: 15px; }
+.tile svg { width: 22px; height: 22px; }
+.temps { display: flex; gap: 8px; flex-wrap: wrap; }
+.temp { background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; min-width: 110px; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Home</div>
+<h1 id="h">Home</h1><div class="small" id="link"></div>
+<div id="rooms"></div>
+<div id="temps"></div>
+<div class="kicker">What changed</div><div class="card" id="log"></div>
+<script>
+(function () {
+  // Never a control for these, whatever the table says (the phone blocks them too).
+  var FORBIDDEN = ["Lock", "Garage door", "Security system", "Camera", "Doorbell"];
+  var ICON = {
+    Light: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/>',
+    Fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7s2 5-2 7M14 12c4 0 7 1 7 4s-5 2-7-2M12 14c0 4-1 7-4 7s-2-5 2-7M10 12c-4 0-7-1-7-4s5-2 7 2"/>',
+    Plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/>'
+  };
+  ICON.Switch = ICON.Plug;
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function w(s, a) { return window.zeus ? zeus.sql(s, a) : { error: "no bridge" }; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function ago(ms) { var m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+  var flipped = {};   // his taps since the page opened: the table only catches up at the next snapshot
+  var said = "";      // why the last tap didn't go through
+
+  // The phone carries the tap out (never a forbidden kind) and says whether it worked; only a done one is logged.
+  function tap(d, on, undo, after) {
+    var data = { id: d.id, on: on };
+    if (undo) data.undo = undo;
+    flipped[d.id] = on ? 1 : 0;
+    if (window.zeus) zeus.haptic();
+    var sent = window.apollo ? apollo.tap("home", data) : { ok: false, detail: "No phone bridge here" };
+    Promise.resolve(sent).then(function (r) {
+      r = r || { ok: false, detail: "No answer from the phone" };
+      if (!r.ok) { delete flipped[d.id]; said = r.detail || "That didn't go through"; render(); return; }
+      said = "";
+      w("INSERT INTO log(at, device_id, device, action, before, who) VALUES(?, ?, ?, ?, ?, 'owner')",
+        [Date.now(), d.id, d.name, on ? "on" : "off", JSON.stringify({ on: d.on_off, level: d.level })]);
+      if (after) after();
+      render();
+    });
+  }
+
+  function render() {
+    var devs = q("SELECT id, name, kind, room, online, on_off, level, temp_c, controllable, at FROM devices ORDER BY room, name")
+      .filter(function (d) { return FORBIDDEN.indexOf(d.kind) < 0; });
+    var ctl = devs.filter(function (d) { return d.controllable === 1; });
+    var at = devs.reduce(function (m, d) { return Math.max(m, d.at || 0); }, 0);
+    var onCount = ctl.filter(function (d) { return (d.id in flipped ? flipped[d.id] : d.on_off) === 1; }).length;
+    document.getElementById("h").textContent = ctl.length ? (onCount ? onCount + " on" : "All off") : "Home";
+    document.getElementById("link").textContent = said || (at ? "Updated " + ago(at) : "Waiting for the phone's first Google Home snapshot.");
+    var rooms = {};
+    ctl.forEach(function (d) { (rooms[d.room || "Other"] = rooms[d.room || "Other"] || []).push(d); });
+    document.getElementById("rooms").innerHTML = Object.keys(rooms).map(function (r) {
+      return '<div class="kicker">' + esc(r) + '</div><div class="grid">' + rooms[r].map(function (d) {
+        var on = (d.id in flipped ? flipped[d.id] : d.on_off) === 1;
+        return '<button class="tile' + (on ? " on" : "") + (d.online ? "" : " off-line") + '" data-id="' + esc(d.id) + '"' + (d.online ? "" : " disabled") + '>' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICON[d.kind] || ICON.Plug) + '</svg>' +
+          '<div><div class="name">' + esc(d.name) + '</div><div class="small">' + (!d.online ? "Offline" : on ? (d.level ? "On, " + d.level + "%" : "On") : "Off") + '</div></div></button>';
+      }).join("") + '</div>';
+    }).join("");
+    document.querySelectorAll(".tile[data-id]").forEach(function (b) {
+      b.onclick = function () {
+        var d = ctl.filter(function (x) { return x.id === b.dataset.id; })[0];
+        if (!d) return;
+        var on = (d.id in flipped ? flipped[d.id] : d.on_off) === 1;
+        tap(d, !on); render();
+      };
+    });
+
+    var temps = devs.filter(function (d) { return d.temp_c != null; });
+    document.getElementById("temps").innerHTML = temps.length ? '<div class="kicker">Temperature</div><div class="temps">' + temps.map(function (d) {
+      return '<div class="temp"><div class="n mid">' + Math.round(d.temp_c * 9 / 5 + 32) + '°</div><div class="small">' + esc(d.room || d.name) + '</div></div>';
+    }).join("") + '</div>' : "";
+
+    var log = q("SELECT id, at, device_id, device, action, before, who, why, undone_at FROM log ORDER BY at DESC LIMIT 40");
+    document.getElementById("log").innerHTML = log.length ? log.map(function (l) {
+      var canUndo = !l.undone_at && l.before && l.device_id && Date.now() - l.at < 864e5;
+      return '<div class="row"><div class="grow"><div class="title">' + esc(l.device) + ' ' + esc(l.action) + '</div><div class="small">' +
+        (l.who === "athena" ? "Athena" : "You") + ", " + esc(ago(l.at)) + (l.why ? ", " + esc(l.why) : "") + (l.undone_at ? ", undone" : "") + '</div></div>' +
+        (canUndo ? '<button data-undo="' + l.id + '">Undo</button>' : "") + '</div>';
+    }).join("") : '<div class="empty">Nothing yet.</div>';
+    document.querySelectorAll("[data-undo]").forEach(function (b) {
+      b.onclick = function () {
+        var l = log.filter(function (x) { return x.id === Number(b.dataset.undo); })[0], before = {};
+        try { before = JSON.parse(l.before) || {}; } catch (e) {}
+        var d = ctl.filter(function (x) { return x.id === l.device_id; })[0];
+        if (!d || before.on == null) { b.textContent = "Can't"; b.disabled = true; return; }
+        b.disabled = true;
+        tap(d, before.on === 1 || before.on === true, l.id, function () { w("UPDATE log SET undone_at = ? WHERE id = ?", [Date.now(), l.id]); });
+      };
+    });
+  }
+  render();
+})();
+</script></body></html>

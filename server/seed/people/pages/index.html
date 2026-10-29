@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  .ini { width: 40px; height: 40px; border-radius: 50%; background: var(--soft); display: flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+  .big { font-size: 34px; font-weight: 700; line-height: 1; }
+  dl { margin: 0; } dt { font-size: 12px; color: var(--quiet); margin-top: 12px; } dd { margin: 2px 0 0; }
+  form .f { margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<section id="list">
+  <h1>People</h1>
+  <div id="soon"></div>
+  <div class="kicker">Everyone</div>
+  <input id="find" placeholder="Find someone">
+  <div class="card" style="margin-top:10px" id="all"></div>
+  <div class="bar"><button id="add">Add someone</button></div>
+  <form id="new" class="card pad hidden">
+    <div class="f"><input name="name" placeholder="Name" required></div>
+    <div class="f"><input name="relation" placeholder="Who they are to you"></div>
+    <div class="f"><input name="birthday" placeholder="Birthday (MM-DD or YYYY-MM-DD)" pattern="(\d{4}-)?\d{2}-\d{2}"></div>
+    <div class="f"><input name="phone" placeholder="Phone" inputmode="tel"></div>
+    <div class="bar"><button class="primary" type="submit">Save</button><span class="quiet" id="newstatus"></span></div>
+  </form>
+</section>
+
+<section id="one" class="hidden">
+  <button class="link" id="back">All people</button>
+  <div class="row" style="border:0;padding-top:4px"><div class="ini" id="pini"></div><div class="grow"><h1 id="pname"></h1><div class="quiet" id="prel"></div></div></div>
+  <div class="card pad"><dl id="pinfo"></dl></div>
+  <div class="kicker">Notes</div>
+  <textarea id="pnotes" rows="4" placeholder="Anything to remember about them"></textarea>
+  <div class="bar"><button class="primary" id="psave">Save notes</button><button id="pcall">Call</button><span class="quiet" id="pstatus"></span></div>
+</section>
+</div>
+<script>
+(function () {
+  var people = [], current = null;
+
+  function next(b) {   // days until the next birthday (0 = today), or null
+    var m = String(b || "").match(/(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    var now = new Date(), t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var d = new Date(t.getFullYear(), Number(m[1]) - 1, Number(m[2]));
+    if (d < t) d.setFullYear(d.getFullYear() + 1);
+    return Math.round((d - t) / 86400000);
+  }
+  function age(b) {
+    var m = String(b || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    var n = next(b), d = new Date(); d.setDate(d.getDate() + n);
+    return d.getFullYear() - Number(m[1]);
+  }
+  function bday(b) {
+    var m = String(b || "").match(/(\d{2})-(\d{2})$/);
+    return m ? new Date(2000, Number(m[1]) - 1, Number(m[2])).toLocaleDateString([], { month: "long", day: "numeric" }) : "";
+  }
+  function ini(n) { return esc(String(n || "?").trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join("").toUpperCase()); }
+  function inDays(n) { return n === 0 ? "today" : n === 1 ? "tomorrow" : "in " + n + " days"; }
+
+  function load() {
+    people = q("SELECT id, name, relation, birthday, tz, phone, notes, last_contact FROM people ORDER BY name COLLATE NOCASE");
+    var soon = people.filter(function (p) { var n = next(p.birthday); return n != null && n <= 30; })
+      .sort(function (a, b) { return next(a.birthday) - next(b.birthday); });
+    $("soon").innerHTML = soon.length ? '<div class="kicker">Birthdays soon</div><div class="card">' + soon.map(function (p) {
+      var n = next(p.birthday), a = age(p.birthday);
+      return '<div class="row tap" data-id="' + p.id + '"><div class="grow"><b>' + esc(p.name) + '</b><span class="quiet">' + bday(p.birthday) +
+        (a ? ", turns " + a : "") + '</span></div><div class="end' + (n === 0 ? " need" : "") + '">' + inDays(n) + "</div></div>";
+    }).join("") + "</div>" : "";
+    list();
+  }
+
+  function list() {
+    var f = $("find").value.trim().toLowerCase();
+    var shown = people.filter(function (p) { return !f || (p.name + " " + (p.relation || "")).toLowerCase().indexOf(f) >= 0; });
+    $("all").innerHTML = shown.length ? shown.map(function (p) {
+      return '<div class="row tap" data-id="' + p.id + '"><div class="ini">' + ini(p.name) + '</div><div class="grow"><b>' + esc(p.name) +
+        '</b><span class="quiet">' + esc(p.relation || "") + "</span></div>" + (p.last_contact ? '<div class="end">' + day(p.last_contact) + "</div>" : "") + "</div>";
+    }).join("") : '<div class="empty">' + (people.length ? "Nobody by that name." : "Nobody here yet. Add someone, or tell Athena about them.") + "</div>";
+    document.querySelectorAll("[data-id]").forEach(function (r) { r.onclick = function () { open(Number(r.dataset.id)); }; });
+  }
+
+  function open(id) {
+    current = people.filter(function (p) { return p.id === id; })[0];
+    if (!current) return;
+    var p = current, n = next(p.birthday), a = age(p.birthday);
+    $("pini").innerHTML = ini(p.name);
+    $("pname").textContent = p.name;
+    $("prel").textContent = p.relation || "";
+    $("pinfo").innerHTML =
+      (p.birthday ? "<dt>Birthday</dt><dd>" + bday(p.birthday) + (a ? ", turns " + a : "") + ", " + inDays(n) + "</dd>" : "") +
+      (p.phone ? "<dt>Phone</dt><dd>" + esc(p.phone) + "</dd>" : "") +
+      (p.tz ? "<dt>Their time</dt><dd>" + esc(p.tz) + "</dd>" : "") +
+      "<dt>Last talked</dt><dd>" + (p.last_contact ? when(p.last_contact) : "Not that Apollo saw") + "</dd>";
+    $("pnotes").value = p.notes || "";
+    $("pcall").classList.toggle("hidden", !p.phone);
+    $("pstatus").textContent = "";
+    $("list").classList.add("hidden"); $("one").classList.remove("hidden");
+    window.scrollTo(0, 0);
+  }
+
+  $("back").onclick = function () { $("one").classList.add("hidden"); $("list").classList.remove("hidden"); };
+  $("find").oninput = list;
+  $("add").onclick = function () { $("new").classList.toggle("hidden"); };
+  $("new").onsubmit = function (e) {
+    e.preventDefault();
+    var f = e.target, v = function (k) { return f[k].value.trim() || null; };
+    var r = write("INSERT INTO people (name, relation, birthday, phone) VALUES (?, ?, ?, ?)", [v("name"), v("relation"), v("birthday"), v("phone")]);
+    $("newstatus").textContent = r.error ? "Not saved: " + r.error : "Saved. It shows here after the next sync.";
+    if (!r.error) f.reset();
+  };
+  $("psave").onclick = function () {
+    var r = write("UPDATE people SET notes = ? WHERE id = ?", [$("pnotes").value.trim(), current.id]);
+    $("pstatus").textContent = r.error ? "Not saved: " + r.error : "Saved.";
+    if (!r.error) current.notes = $("pnotes").value.trim();
+  };
+  $("pcall").onclick = function () {
+    tap("call", { id: current.id, name: current.name, phone: current.phone });
+    $("pstatus").textContent = "Asked Athena to call " + current.name + ".";
+  };
+  load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  NetGate's second layer (net/NetGate.kt is the first: it refuses any host but the Apollo server, api.cloudhost.example and
+  his fetch_allow hosts before a connection opens, and logs what leaves). Cleartext is off everywhere, the WebView
+  included. The system CAs are trusted for every host because the fetch_allow list is his to grow at run time, so it
+  can't be listed here as Zeus listed its fixed hosts; NetGate is what narrows it. User-added CAs are not trusted.
+  Every OkHttp client also refuses eMudhra (emSign) chains (TlsGuard, decision 2026-10-20).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

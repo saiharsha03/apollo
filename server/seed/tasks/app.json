@@ -1,0 +1,10 @@
+{
+  "name": "tasks",
+  "title": "Tasks",
+  "icon": "check",
+  "about": "His to-dos and the follow-ups Iris and Atlas hold for him: a synced copy of owner.db's tasks, plus lists. Iris owns the rows; changes from you or his taps flow back to her through one logged sync.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/open.html"],
+  "phone_tables": []
+}

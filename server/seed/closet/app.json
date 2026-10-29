@@ -1,0 +1,10 @@
+{
+  "name": "closet",
+  "title": "Closet",
+  "icon": "shirt",
+  "about": "Venus: his clothes (photo, kind, colour, warmth) and the outfits Athena suggests for the day's weather.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": []
+}

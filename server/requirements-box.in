@@ -1,0 +1,2 @@
+# Athena's box: only the Anthropic SDK (EnvironmentWorker). Lock: requirements-box.txt (pip-compile --generate-hashes).
+anthropic

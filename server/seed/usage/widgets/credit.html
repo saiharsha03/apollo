@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../pages/apollo.css">
+<style>
+html, body { height: 100%; background: transparent; }
+body { margin: 0; padding: 14px 16px; max-width: none; border-radius: 24px; background: var(--raised); overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; }
+.top { display: flex; align-items: baseline; gap: 6px; }
+.bar { height: 10px; }
+</style></head><body data-tap="open">
+<div class="kicker" style="margin:0">Athena credit</div>
+<div class="top"><span class="n big" id="v">$0</span><span class="quiet" id="c">of $200</span></div>
+<div><div class="bar" id="b"><i id="f" style="width:0"></i></div><div class="small" id="s" style="margin-top:6px"></div></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  var r = q("SELECT used_usd, cap_usd, detail FROM usage WHERE who = 'athena' AND meter = 'managed_month' ORDER BY at DESC LIMIT 1")[0];
+  if (!r) { document.getElementById("s").textContent = "No reading yet"; return; }
+  var cap = r.cap_usd || 200, used = r.used_usd || 0, n = new Date();
+  document.getElementById("v").textContent = "$" + Math.round(used);
+  document.getElementById("c").textContent = "of $" + Math.round(cap);
+  document.getElementById("f").style.width = Math.min(100, used / cap * 100) + "%";
+  if (used >= cap * .9) document.getElementById("b").classList.add("over");
+  document.getElementById("s").textContent = r.detail || (new Date(n.getFullYear(), n.getMonth() + 1, 0).getDate() - n.getDate()) + " days left";
+})();
+</script></body></html>

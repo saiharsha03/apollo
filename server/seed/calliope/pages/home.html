@@ -1,0 +1,165 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  textarea.page { min-height: 38vh; font-size: 17px; border-radius: 20px; padding: 14px 16px; }
+  .entry { padding: 12px 0; border-top: 1px solid var(--line); white-space: pre-wrap; }
+  .entry:first-child { border-top: 0; }
+  .entry .when { color: var(--quiet); font-size: 13px; white-space: normal; }
+  .entry .orig { display: none; color: var(--quiet); font-size: 14px; margin-top: 6px; }
+  .entry.open .orig { display: block; }
+  .entry audio { display: block; width: 100%; margin-top: 8px; height: 36px; }
+  .note b { display: block; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker" style="margin-top:4px">Calliope</div>
+  <div class="tabs"><button data-t="write" class="on">Write</button><button data-t="notes">Notes</button><button data-t="search">Search</button></div>
+
+  <section id="write">
+    <textarea class="page" id="text" placeholder="Anything on your mind."></textarea>
+    <div class="bar">
+      <button class="primary" id="done">Done</button>
+      <button id="speak">Speak</button>
+      <button id="private">Just for me</button>
+      <span class="quiet" id="status"></span>
+    </div>
+    <p class="quiet">Athena fixes the typos, keeps your words and files each piece into your notes.</p>
+    <div id="recent"></div>
+  </section>
+
+  <section id="notes" class="hidden">
+    <div id="lookback"></div>
+    <div id="list"></div>
+    <div id="one" class="hidden">
+      <button class="link" id="back">All notes</button>
+      <h1 id="title"></h1>
+      <div class="card" id="entries"></div>
+      <div class="bar"><button id="ask">Ask Athena about this</button></div>
+    </div>
+  </section>
+
+  <section id="search" class="hidden">
+    <input id="q" placeholder="Search your notes">
+    <div class="card" id="hits" style="margin-top:10px"></div>
+  </section>
+</div>
+<script>
+(function () {
+  var current = null, pending = [];
+
+  function audio(a) { return a ? '<audio controls preload="none" src="../' + esc(a) + '"></audio>' : ""; }
+
+  function save(raw, audioPath, seconds, heard) {
+    var at = Date.now();
+    if (heard) raw = raw ? raw + "\n\n" + heard : heard;
+    var r = write("INSERT INTO entries (at, raw, audio, seconds) VALUES (?, ?, ?, ?)", [at, raw, audioPath || null, seconds || 0]);
+    if (!r || r.error) return false;
+    if (window.zeusNative) window.zeusNative.tell("CALLIOPE ENTRY at " + at + ": file it (clean the typos and grammar, keep his words and tone, split by topic into notes)." +
+      (audioPath ? " It has a " + seconds + " s voice note kept on his phone" + (heard ? "; its words (Sarvam) are in raw after his typing." : " (no words from it).") : ""), false);
+    pending.unshift({ at: at, raw: raw, audio: audioPath, filed: 0 });
+    recent();
+    return true;
+  }
+
+  $("done").onclick = function () {
+    var t = $("text").value.trim();
+    if (!t) return;
+    if (!save(t)) { $("status").textContent = "Couldn't keep it. Your words are still here; try Done again."; return; }
+    $("text").value = ""; $("status").textContent = "Kept. Athena files it.";
+  };
+  // A voice note: Apollo records it into this app's folder on the phone; Sarvam (through the server) writes the words.
+  // Speak only asks: he taps Record on Apollo's own sheet. Apollo says when the mic is on (zeusVoiceState), and the note,
+  // or why there is none (his Cancel), comes to zeusVoice however it ends: this Stop or Apollo's banner Stop.
+  var recording = false;
+  window.zeusVoiceState = function (s) {
+    recording = !!(s && s.recording);
+    $("speak").textContent = recording ? "Stop" : "Speak";
+    if (recording) $("status").textContent = "Listening.";
+  };
+  function heard(n) {
+    window.zeusVoice = null;
+    if (!n || !n.path) { $("status").textContent = n && n.error === "cancelled" ? "" : (n && n.error) || "Couldn't keep the recording."; return; }
+    var t = $("text").value.trim();
+    if (!save(t, n.path, n.seconds, String(n.text || "").trim())) { $("status").textContent = "The recording is on the phone, but the entry didn't save; try again."; return; }
+    $("text").value = "";
+    $("status").textContent = n.text ? "Kept, with what you said." : t ? "Kept, with your words." : "Kept. Athena knows there's a voice note, not what you said.";
+  }
+  $("speak").onclick = function () {
+    if (!window.zeusNative) return;
+    if (!recording) {
+      window.zeusVoice = heard;
+      var r = JSON.parse(window.zeusNative.voiceStart());
+      if (r.error) { window.zeusVoice = null; $("status").textContent = r.error === "needs_mic" ? "Apollo needs the microphone (Settings > Apps > Apollo)." : r.error; return; }
+      $("status").textContent = "Tap Record on Apollo's sheet.";
+      return;
+    }
+    $("status").textContent = "Keeping it.";
+    window.zeusNative.voiceStop();
+  };
+  // His private page: Apollo's own sealed page, into Calypso. Nothing typed there touches this page or the server.
+  $("private").onclick = function () { if (window.zeusNative) window.zeusNative.privateNote(); };
+
+  function recent() {
+    var r = q("SELECT id, at, raw, audio, filed FROM entries ORDER BY id DESC LIMIT 5");
+    var seen = {}; r.forEach(function (e) { seen[e.at] = true; });
+    pending = pending.filter(function (p) { return !seen[p.at]; });
+    var all = pending.concat(r).slice(0, 5);
+    $("recent").innerHTML = all.length ? '<div class="kicker">Lately</div><div class="card">' + all.map(function (e) {
+      return '<div class="entry"><div class="when">' + when(e.at) + (e.filed ? "" : ", not filed yet") + "</div>" + esc(String(e.raw || "").slice(0, 240)) + audio(e.audio) + "</div>";
+    }).join("") + "</div>" : "";
+  }
+
+  function notes() {
+    $("one").classList.add("hidden"); $("list").classList.remove("hidden");
+    var lb = q("SELECT week, text FROM lookbacks ORDER BY id DESC LIMIT 1")[0];
+    $("lookback").innerHTML = lb ? '<div class="card pad"><div class="kicker" style="margin-top:0">Your week, ' + esc(lb.week) + "</div><p>" + esc(lb.text) + "</p></div>" : "";
+    var n = q("SELECT n.topic, n.title, n.about, n.updated, (SELECT count(*) FROM filed f WHERE f.topic = n.topic) AS c FROM notes n ORDER BY n.updated DESC");
+    $("list").innerHTML = n.length ? '<div class="card">' + n.map(function (x) {
+      return '<div class="row tap note" data-topic="' + esc(x.topic) + '"><div class="grow"><b>' + esc(x.title || x.topic) + '</b><span class="quiet">' +
+        x.c + (x.c === 1 ? " piece" : " pieces") + (x.updated ? ", " + day(x.updated) : "") + (x.about ? ", " + esc(x.about) : "") + "</span></div></div>";
+    }).join("") + "</div>" : '<div class="empty">No notes yet. Write something and Athena makes the first one.</div>';
+    $("list").querySelectorAll(".note").forEach(function (d) { d.onclick = function () { open(d.dataset.topic); }; });
+  }
+
+  function entryHtml(f) {
+    return '<div class="entry"><div class="when">' + when(f.at) + "</div>" + esc(f.text) + audio(f.audio) +
+      (f.raw ? ' <button class="link" data-orig>Original</button><div class="orig">' + esc(f.raw) + "</div>" : "") + "</div>";
+  }
+  function bind(root) { root.querySelectorAll("[data-orig]").forEach(function (b) { b.onclick = function () { b.parentNode.classList.toggle("open"); }; }); }
+
+  function open(topic) {
+    current = topic;
+    var n = q("SELECT title FROM notes WHERE topic = " + lit(topic))[0] || {};
+    $("title").textContent = n.title || topic;
+    var f = q("SELECT f.at, f.text, e.raw, e.audio FROM filed f LEFT JOIN entries e ON e.id = f.entry WHERE f.topic = " + lit(topic) + " ORDER BY f.at DESC");
+    $("entries").innerHTML = f.length ? f.map(entryHtml).join("") : '<div class="empty">Nothing filed here yet.</div>';
+    bind($("entries"));
+    $("list").classList.add("hidden"); $("lookback").innerHTML = ""; $("one").classList.remove("hidden");
+  }
+  $("back").onclick = notes;
+  $("ask").onclick = function () {
+    if (window.zeusNative) window.zeusNative.tell("He wants to talk about his Calliope note \"" + current + "\".", true);
+    $("ask").textContent = "Athena will pick it up in chat";
+  };
+
+  $("q").oninput = function () {
+    var s = $("q").value.trim();
+    if (s.length < 2) { $("hits").innerHTML = ""; return; }
+    var like = lit("%" + s + "%");
+    var f = q("SELECT f.at, f.text, f.topic, e.raw, e.audio FROM filed f LEFT JOIN entries e ON e.id = f.entry WHERE f.text LIKE " + like + " OR e.raw LIKE " + like + " ORDER BY f.at DESC LIMIT 60");
+    $("hits").innerHTML = f.length ? f.map(function (x) { return entryHtml(x).replace('<div class="when">', '<div class="when">' + esc(x.topic) + ", "); }).join("") : '<div class="empty">Nothing yet.</div>';
+    bind($("hits"));
+  };
+
+  tabs(function (t) { if (t === "notes") notes(); if (t === "write") recent(); });
+  recent();
+})();
+</script>
+</body>
+</html>

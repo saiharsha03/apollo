@@ -1,0 +1,2 @@
+# Vendored Maven artifacts are checked by sha256 (gradle/verification-metadata.xml): never convert their line endings.
+app/libs/** -text

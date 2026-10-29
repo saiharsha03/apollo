@@ -1,0 +1,60 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Status</title><link rel="stylesheet" href="apollo.css"><script src="/kit/zeus.js"></script>
+<style>
+.lvl { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--quiet); align-self: flex-start; margin-top: 6px; }
+.lvl.high { background: var(--alarm); }
+.lvl.warn { background: var(--ink); }
+.part { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.part:last-child { border: 0; }
+.part .grow { flex: 1; min-width: 0; }
+.ok { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); flex: none; }
+.ok.bad { background: var(--alarm); }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Status</div>
+<h1 id="h">All good</h1><div class="small" id="sub"></div>
+<div class="kicker">Open alerts</div><div class="card" id="open"></div>
+<div class="kicker">Server</div><div class="card" id="parts"></div>
+<div class="kicker">Resolved</div><div class="card" id="done"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function w(s, a) { return window.zeus ? zeus.sql(s, a) : { error: "no bridge" }; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function when(ms) { return ms ? new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""; }
+  var resolved = {};
+
+  function render() {
+    var open = q("SELECT id, at, level, source, text FROM open_alerts").filter(function (a) { return !resolved[a.id]; });
+    var high = open.filter(function (a) { return a.level === "high"; }).length;
+    var h = document.getElementById("h");
+    h.textContent = open.length ? open.length + " open" : "All good";
+    h.className = high ? "red" : "";
+    document.getElementById("sub").textContent = high ? high + " high" : "";
+    document.getElementById("open").innerHTML = open.length ? open.map(function (a) {
+      return '<div class="row"><span class="lvl ' + esc(a.level) + '"></span><div class="grow"><div class="text">' + esc(a.text) + '</div><div class="small">' +
+        esc(a.source) + ", " + esc(when(a.at)) + '</div></div><button data-r="' + a.id + '">Resolve</button></div>';
+    }).join("") : '<div class="empty">Nothing open.</div>';
+    document.querySelectorAll("[data-r]").forEach(function (b) {
+      b.onclick = function () {
+        var r = w("UPDATE alerts SET resolved_at = ?, resolved_by = 'owner' WHERE id = ? AND resolved_at IS NULL", [Date.now(), Number(b.dataset.r)]);
+        if (r && r.error) { b.textContent = "Not saved"; return; }
+        resolved[b.dataset.r] = true; if (window.zeus) zeus.haptic(); render();
+      };
+    });
+
+    var parts = q("SELECT component, ok, detail, checked FROM server_health ORDER BY ok, component");
+    document.getElementById("parts").innerHTML = parts.length ? parts.map(function (p) {
+      return '<div class="part"><span class="ok' + (p.ok ? "" : " bad") + '"></span><div class="grow"><div>' + esc(p.component) + '</div>' +
+        (p.detail ? '<div class="small">' + esc(p.detail) + '</div>' : "") + '</div><div class="small right">' + esc(when(p.checked)) + '</div></div>';
+    }).join("") : '<div class="empty">No check yet.</div>';
+
+    var done = q("SELECT at, level, source, text, resolved_at, resolved_by, note FROM alerts WHERE resolved_at IS NOT NULL ORDER BY resolved_at DESC LIMIT 30");
+    document.getElementById("done").innerHTML = done.length ? done.map(function (a) {
+      return '<div class="row"><div class="grow"><div class="text quiet">' + esc(a.text) + '</div><div class="small">' + esc(a.source) + ", " + esc(when(a.at)) +
+        ". Resolved " + esc(when(a.resolved_at)) + (a.resolved_by ? " by " + esc(a.resolved_by) : "") + (a.note ? ": " + esc(a.note) : "") + '</div></div></div>';
+    }).join("") : '<div class="empty">None yet.</div>';
+  }
+  render();
+})();
+</script></body></html>

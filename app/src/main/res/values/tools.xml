@@ -1,0 +1,20 @@
+<resources>
+    <!-- Hermes, Ask Athena, Lemnos, Clio, Mnemosyne, Live, Prometheus. Colours match ui/Theme.kt's Tone. -->
+    <color name="tone_raised">#FFFFFFFF</color>
+    <color name="tone_soft">#FFEAEDF1</color>
+    <color name="tone_ink">#FF14171B</color>
+    <color name="tone_quiet">#FF6B737C</color>
+    <color name="tone_accent">#FF2F63EA</color>
+    <string name="ask_widget_about">Ask Athena: type, or tap the mic and speak.</string>
+    <string name="ask_hint">Ask Athena</string>
+    <string name="ask_mic">Speak to Athena</string>
+    <string name="assist_label">Apollo</string>
+    <!-- The sheet over any app: no window of its own, a dimmed screen behind it. -->
+    <style name="Theme.Apollo.Sheet" parent="Theme.Apollo">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.InputMethod</item>
+    </style>
+</resources>

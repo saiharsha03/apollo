@@ -1,0 +1,10 @@
+{
+  "name": "trips",
+  "title": "Trips",
+  "icon": "plane",
+  "about": "Argo: his trips and every leg of them (flights, trains, drives, stays, events), with a md per trip. Iris finds the bookings.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": []
+}

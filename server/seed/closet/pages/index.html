@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  .wx { display: flex; align-items: baseline; gap: 12px; margin: 8px 0 2px; }
+  .wx .t { font-size: 40px; font-weight: 700; line-height: 1; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+  .it { background: var(--raised); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .it .ph { aspect-ratio: 1; background: var(--soft); display: flex; align-items: center; justify-content: center; color: var(--quiet); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .it .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .it .cap { padding: 8px 10px; font-size: 13px; line-height: 1.3; }
+  .it .cap span { color: var(--quiet); display: block; font-size: 12px; }
+  .kinds { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 12px; }
+  .kinds button { min-height: 36px; padding: 0 14px; font-size: 14px; }
+  .kinds button.on { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+  .add .shot { width: 120px; aspect-ratio: 1; border-radius: 18px; background: var(--soft); overflow: hidden; margin: 8px 0; }
+  .add .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .add select, .add input { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Closet</h1>
+  <div class="tabs"><button data-t="today" class="on">Today</button><button data-t="all">Everything</button></div>
+  <section id="today">
+    <div class="wx" id="wx"></div>
+    <div class="quiet" id="wxs"></div>
+    <div class="kicker">What to wear</div>
+    <div id="outfit"></div>
+  </section>
+  <section id="all" class="hidden">
+    <div class="kinds" id="kinds"></div>
+    <div class="grid" id="items"></div>
+    <div class="kicker">Add a piece</div>
+    <div class="card pad add">
+      <div class="bar"><button id="cam">Take a photo</button><button id="pick">Pick a photo</button></div>
+      <div class="shot hidden" id="shot"></div>
+      <select id="akind"><option>top</option><option>bottom</option><option>outer</option><option>shoes</option><option>accessory</option></select>
+      <input id="aname" placeholder="What it is (navy quarter-zip)">
+      <input id="acolor" placeholder="Colour">
+      <div class="bar"><button class="primary" id="add">Add</button><span class="quiet" id="ast"></span></div>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var SKY = { 0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Cloudy", 45: "Fog", 48: "Fog", 51: "Drizzle", 53: "Drizzle", 55: "Drizzle",
+    61: "Rain", 63: "Rain", 65: "Heavy rain", 66: "Freezing rain", 67: "Freezing rain", 71: "Snow", 73: "Snow", 75: "Heavy snow", 77: "Snow",
+    80: "Showers", 81: "Showers", 82: "Heavy showers", 85: "Snow showers", 86: "Snow showers", 95: "Thunderstorm", 96: "Thunderstorm", 99: "Thunderstorm" };
+  var kind = null;
+  function f(c) { return Math.round(c * 9 / 5 + 32) + "°"; }
+
+  function weather() {   // the weather page's own cache on this phone, if it has run
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem("aeolia.forecast") || "null"); } catch (e) {}
+    if (!d || !d.current) { $("wxs").textContent = "Open Weather once and today's conditions show here."; return; }
+    var c = d.current, dl = d.daily || {};
+    $("wx").innerHTML = '<span class="t">' + f(c.temperature_2m) + '</span><span class="quiet">feels ' + f(c.apparent_temperature) + "</span>";
+    $("wxs").textContent = (SKY[c.weather_code] || "") + (dl.temperature_2m_max ? ", high " + f(dl.temperature_2m_max[0]) + " low " + f(dl.temperature_2m_min[0]) : "") +
+      (dl.precipitation_probability_max ? ", rain " + dl.precipitation_probability_max[0] + "%" : "");
+  }
+
+  function card(i) {
+    return '<div class="it"><div class="ph">' + (i.photo ? '<img src="../' + esc(i.photo) + '" alt="">' : esc(i.kind)) + '</div><div class="cap">' +
+      esc(i.name || i.color || i.kind) + "<span>" + esc([i.color, i.kind].filter(Boolean).join(", ")) + "</span></div></div>";
+  }
+
+  function outfit() {
+    var o = q("SELECT id, items, weather, why, worn FROM outfits WHERE date = " + lit(today()) + " ORDER BY id DESC LIMIT 1")[0];
+    if (!o) { $("outfit").innerHTML = '<div class="empty">No outfit yet today. Ask Athena, or she suggests one in the morning.</div>'; return; }
+    var ids = [];
+    try { ids = JSON.parse(o.items || "[]").map(Number).filter(function (n) { return n === n; }); } catch (e) {}
+    var items = ids.length ? q("SELECT id, photo, kind, name, color FROM items WHERE id IN (" + ids.join(",") + ")") : [];
+    $("outfit").innerHTML = '<div class="grid">' + items.map(card).join("") + "</div>" +
+      (o.why ? "<p>" + esc(o.why) + "</p>" : "") + (o.weather ? '<div class="quiet">For: ' + esc(o.weather) + "</div>" : "") +
+      '<div class="bar">' + (o.worn ? '<span class="pill on">Wearing it</span>' : '<button class="primary" id="wear">Wearing this</button><button id="other">Something else</button>') +
+      '<span class="quiet" id="st"></span></div>';
+    if (o.worn) return;
+    $("wear").onclick = function () {
+      var r = write("UPDATE outfits SET worn = 1 WHERE id = ?", [o.id]);
+      $("st").textContent = r.error ? "Not saved: " + r.error : "Noted.";
+      if (!r.error) { $("wear").disabled = true; $("other").classList.add("hidden"); }
+    };
+    $("other").onclick = function () { tap("other", { outfit: o.id }); $("st").textContent = "Athena will suggest another."; };
+  }
+
+  function all() {
+    var kinds = q("SELECT kind, count(*) AS n FROM items GROUP BY kind ORDER BY n DESC");
+    $("kinds").innerHTML = kinds.length ? '<button data-k="">All</button>' + kinds.map(function (k) { return '<button data-k="' + esc(k.kind) + '">' + esc(k.kind) + " " + k.n + "</button>"; }).join("") : "";
+    $("kinds").querySelectorAll("button").forEach(function (b) {
+      b.classList.toggle("on", (b.dataset.k || null) === kind);
+      b.onclick = function () { kind = b.dataset.k || null; all(); };
+    });
+    var items = q("SELECT id, photo, kind, name, color FROM items" + (kind ? " WHERE kind = " + lit(kind) : "") + " ORDER BY kind, warmth, id");
+    $("items").innerHTML = items.length ? items.map(card).join("") : '<div class="empty">No clothes yet. Send Athena photos of your clothes.</div>';
+  }
+
+  // New clothes: Apollo takes or picks the photo and keeps it in this app's folder on the phone (never uploaded).
+  var shot = null;
+  function photo(src) {
+    if (!window.apollo || !window.apollo.photo) { $("ast").textContent = "Photos need the phone."; return; }
+    $("ast").textContent = "";
+    window.apollo.photo(src, function (r) {
+      if (!r || !r.path) { $("ast").textContent = (r && r.error) || "No photo."; return; }
+      shot = r.path; $("shot").innerHTML = '<img src="../' + esc(shot) + '" alt="">'; $("shot").classList.remove("hidden");
+    });
+  }
+  $("cam").onclick = function () { photo("camera"); };
+  $("pick").onclick = function () { photo("pick"); };
+  $("add").onclick = function () {
+    var name = $("aname").value.trim(), color = $("acolor").value.trim();
+    if (!shot && !name) { $("ast").textContent = "A photo or a name first."; return; }
+    var r = write("INSERT INTO items (photo, kind, name, color, added) VALUES (?, ?, ?, ?, ?)", [shot, $("akind").value, name || null, color || null, Date.now()]);
+    if (r.error) { $("ast").textContent = "Not saved: " + r.error; return; }
+    tap("added", { kind: $("akind").value, name: name });
+    shot = null; $("shot").classList.add("hidden"); $("aname").value = ""; $("acolor").value = "";
+    $("ast").textContent = "Added. It shows after the next sync.";
+  };
+
+  tabs(function (t) { if (t === "all") all(); });
+  weather(); outfit();
+})();
+</script>
+</body>
+</html>

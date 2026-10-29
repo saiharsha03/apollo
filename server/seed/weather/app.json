@@ -1,0 +1,10 @@
+{
+  "name": "weather",
+  "title": "Weather",
+  "icon": "sun",
+  "about": "Aeolia, the weather with the Samsung scenes: forecast, NWS alerts, air quality and radar. Athena may add drawn animations.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/now.html"],
+  "phone_tables": []
+}

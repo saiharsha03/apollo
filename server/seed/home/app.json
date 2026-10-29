@@ -1,0 +1,10 @@
+{
+  "name": "home",
+  "title": "Home",
+  "icon": "home",
+  "about": "Hestia: his lights, plugs and fans as tiles (his taps go straight to the phone's Google Home bridge), room temperatures, and a log of every change with Undo. Locks and garage are never controlled.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": [],
+  "phone_tables": ["devices"]
+}

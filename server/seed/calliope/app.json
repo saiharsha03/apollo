@@ -1,0 +1,10 @@
+{
+  "name": "calliope",
+  "title": "Calliope",
+  "icon": "quill",
+  "about": "His journal: he writes or speaks anything; you clean it (his words, his tone) and file it into notes by topic.",
+  "section": true,
+  "pages": ["pages/home.html"],
+  "widgets": [],
+  "phone_tables": []
+}

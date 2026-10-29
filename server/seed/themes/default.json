@@ -1,0 +1,35 @@
+{
+  "name": "default",
+  "about": "Apollo's look (2026-10-27): dark only, near-monochrome, one blue for actions, red only for what needs him.",
+  "light": {
+    "ground": "#0E1013",
+    "raised": "#171A1E",
+    "soft": "#22262B",
+    "ink": "#ECEEF1",
+    "quiet": "#8B939C",
+    "line": "#262A30",
+    "accent": "#5B8CFF",
+    "alarm": "#FF453A",
+    "on_sky": "#FFFFFF",
+    "on_sky_dim": "#B8FFFFFF",
+    "mine": "#2A2E35",
+    "sky_off": "#0E1013"
+  },
+  "dark": {
+    "ground": "#0E1013",
+    "raised": "#171A1E",
+    "soft": "#22262B",
+    "ink": "#ECEEF1",
+    "quiet": "#8B939C",
+    "line": "#262A30",
+    "accent": "#5B8CFF",
+    "alarm": "#FF453A",
+    "on_sky": "#FFFFFF",
+    "on_sky_dim": "#B8FFFFFF",
+    "mine": "#2A2E35",
+    "sky_off": "#0E1013"
+  },
+  "fonts": { "text": "figtree", "numbers": "doto" },
+  "radius": 22,
+  "sky": true
+}

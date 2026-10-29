@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the google-services plugin would generate from app/google-services.json (your Firebase project). These identify the app to Firebase; they are not secrets. Used only for FCM wake-ups (carried over from Zeus, same Firebase project). -->
+<resources>
+    <string name="google_app_id" translatable="false">1:000000000000:android:0000000000000000</string>
+    <string name="gcm_defaultSenderId" translatable="false">000000000000</string>
+    <string name="google_api_key" translatable="false">YOUR_FIREBASE_API_KEY</string>
+    <string name="project_id" translatable="false">your-firebase-project</string>
+</resources>

@@ -1,0 +1,14 @@
+{
+  "name": "brief",
+  "title": "Brief",
+  "icon": "sunrise",
+  "about": "Eos, the morning brief: one short read for the day (weather, calendar, people, money, what's due), made before his first unlock.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/today.html"],
+  "phone_tables": [],
+  "routines": [
+    {"name": "Morning brief", "when_time": "05:00", "tz": "America/New_York", "repeat": "daily",
+     "action": "Write today's brief in the brief app (a briefs row for today: md + cards). Post its card at his first unlock after 5 AM (the first unlock fact after 05:00)."}
+  ]
+}

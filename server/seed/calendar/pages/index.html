@@ -1,0 +1,95 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calendar</title><link rel="stylesheet" href="apollo.css"><script src="/kit/zeus.js"></script>
+<style>
+.day { margin-top: 18px; }
+.day h2 { display: flex; align-items: baseline; gap: 8px; }
+.time { width: 64px; flex: none; font-size: 13px; }
+.hers .title { color: var(--quiet); }
+.hidden { opacity: .45; }
+.hide { font-size: 12px; padding: 5px 10px; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Calendar</div>
+<h1 id="head">Two weeks</h1>
+<div class="small" id="sub"></div>
+<div class="tabs"><button id="toggle" aria-pressed="false">Show hidden</button></div>
+<div id="days"></div>
+<script>
+(function () {
+  var DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  var showHidden = false;
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function peek(app, s) { var r = window.zeus ? zeus.peek(app, s) : null; return r && Array.isArray(r.rows) ? r.rows : []; }
+  function w(s, a) { return window.zeus ? zeus.sql(s, a) : { error: "no bridge" }; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function hm(ms) { return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); }
+
+  function matches(rule, e) {
+    if (!rule.on_off || (rule.calendar && rule.calendar !== e.calendar)) return false;
+    var t = String(e.title || "").toLowerCase();
+    return String(rule.match).toLowerCase().split("|").some(function (x) { x = x.trim(); return x && t.indexOf(x) >= 0; });
+  }
+  function hidden(e, rules, picks) {
+    if (picks[e.id] !== undefined) return !picks[e.id];
+    var mine = rules.filter(function (r) { return r.by === "owner" && matches(r, e); });
+    var use = mine.length ? mine : rules.filter(function (r) { return matches(r, e); });
+    return use.some(function (r) { return r.action === "hide"; }) && !use.some(function (r) { return r.action === "keep"; });
+  }
+  function onDay(r, d) {
+    var rep = String(r.repeat || "daily").toLowerCase(), wd = d.getDay();
+    if (rep.indexOf("once:") === 0) return rep.slice(5) === ymd(d);
+    if (rep === "daily") return true;
+    if (rep === "weekdays") return wd > 0 && wd < 6;
+    if (rep === "weekends") return wd === 0 || wd === 6;
+    return rep.split(",").map(function (x) { return x.trim().slice(0, 3); }).indexOf(DAYS[wd]) >= 0;
+  }
+
+  function render() {
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    var end = start.getTime() + 14 * 864e5;
+    var events = q("SELECT id, title, start, end, all_day, location, calendar FROM events WHERE start < " + end + " AND COALESCE(end, start) >= " + start.getTime() + " ORDER BY start");
+    var rules = q("SELECT match, action, calendar, by, on_off FROM hide_rules");
+    var picks = {}; q("SELECT event, show FROM event_picks").forEach(function (p) { picks[p.event] = !!p.show; });
+    var types = {}; q("SELECT date, type FROM day_types").forEach(function (t) { types[t.date] = t.type; });
+    var routines = peek("routines", "SELECT name, when_time, repeat FROM routines WHERE on_off = 1 AND when_time IS NOT NULL ORDER BY when_time");
+    var nHidden = 0, html = "";
+    for (var i = 0; i < 14; i++) {
+      var d = new Date(start.getTime() + i * 864e5), key = ymd(d), next = d.getTime() + 864e5, rows = [];
+      events.forEach(function (e) {
+        var s = e.all_day ? new Date(new Date(e.start).toISOString().slice(0, 10) + "T00:00").getTime() : e.start;
+        if (s < d.getTime() || s >= next) return;
+        var h = hidden(e, rules, picks);
+        if (h) nHidden++;
+        if (h && !showHidden) return;
+        rows.push({ at: e.all_day ? -1 : s, html: '<div class="row' + (h ? " hidden" : "") + '"><div class="time n">' + (e.all_day ? "all day" : esc(hm(s))) + '</div>' +
+          '<div class="grow"><div class="title">' + esc(e.title) + '</div>' + (e.location ? '<div class="small">' + esc(e.location) + '</div>' : "") + '</div>' +
+          (h ? "" : '<button class="hide" data-t="' + esc(e.title) + '">Hide like this</button>') + '</div>' });
+      });
+      routines.forEach(function (r) {
+        if (!onDay(r, d)) return;
+        var p = String(r.when_time).split(":"), at = d.getTime() + (Number(p[0]) * 60 + Number(p[1] || 0)) * 6e4;
+        rows.push({ at: at, html: '<div class="row hers"><div class="time n">' + esc(hm(at)) + '</div><div class="grow"><div class="title">' + esc(r.name) +
+          '</div><div class="small">Athena\'s routine</div></div></div>' });
+      });
+      rows.sort(function (a, b) { return a.at - b.at; });
+      html += '<div class="day"><h2>' + esc(d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })) +
+        (types[key] ? ' <span class="pill">' + esc(types[key]) + '</span>' : "") + '</h2>' +
+        '<div class="card">' + (rows.length ? rows.map(function (r) { return r.html; }).join("") : '<div class="empty">Nothing</div>') + '</div></div>';
+    }
+    document.getElementById("days").innerHTML = html;
+    document.getElementById("sub").textContent = events.length + " events, " + nHidden + " hidden by rules";
+    document.querySelectorAll("button.hide").forEach(function (b) {
+      b.onclick = function () {
+        var words = b.dataset.t.split(/\s+/).filter(function (x) { return x.length > 2; }).slice(0, 3).join(" ").toLowerCase();
+        if (!words) return;
+        w("INSERT INTO hide_rules(match, action, by, label, at) VALUES(?, 'hide', 'owner', ?, ?)", [words, "Hide events like " + b.dataset.t.slice(0, 60), Date.now()]);
+        if (window.zeus && zeus.haptic) zeus.haptic();
+        b.textContent = "Hidden after sync"; b.disabled = true;
+      };
+    });
+  }
+  document.getElementById("toggle").onclick = function () { showHidden = !showHidden; this.setAttribute("aria-pressed", showHidden); render(); };
+  render();
+})();
+</script>
+</body></html>

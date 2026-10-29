@@ -1,0 +1,15 @@
+{
+  "name": "money",
+  "title": "Money",
+  "icon": "wallet",
+  "about": "Iris's ledger, synced from owner.db: transactions, bills and subscriptions, with charts. Iris owns the rows; you read them and write money.md.",
+  "section": true,
+  "secure": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/month.html"],
+  "phone_tables": [],
+  "routines": [
+    {"name": "Nightly expense card", "when_time": "21:30", "tz": "America/New_York", "repeat": "daily",
+     "action": "Card with today's spending from the money app (transactions dated today, kind spend): the total, the top two categories, and anything unusual against the last 30 days. Category level only: no merchants or card digits on the card."}
+  ]
+}

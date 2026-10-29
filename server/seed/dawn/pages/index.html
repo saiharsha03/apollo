@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  .meter { height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; margin: 12px 0 4px; }
+  .meter i { display: block; height: 100%; background: var(--ink); }
+  .step { padding: 14px 0; border-top: 1px solid var(--line); }
+  .step:first-child { border-top: 0; }
+  .step .head { display: flex; gap: 12px; align-items: center; cursor: pointer; min-height: 32px; }
+  .step .head b { flex: 1; font-weight: 600; }
+  .step .more { display: none; margin: 8px 0 0 20px; }
+  .step.open .more { display: block; }
+  .step .fix { margin-top: 6px; }
+  .step.done .head b { color: var(--quiet); font-weight: 500; }
+  .tick { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line); flex: none; position: relative; }
+  .done .tick { background: var(--ink); border-color: var(--ink); }
+  .done .tick::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid var(--ground); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .lost .tick { border-color: var(--alarm); }
+  .head button { min-height: 36px; padding: 0 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Setting up Apollo</h1>
+  <div class="quiet" id="sum"></div>
+  <div class="meter"><i id="meter" style="width:0"></i></div>
+  <div class="kicker">Left to do</div>
+  <div class="card" id="left"></div>
+  <div class="kicker">Done</div>
+  <div class="card" id="done"></div>
+</div>
+<script>
+(function () {
+  var marked = {}, now = {}, opened = {};
+  /* Allow: the phone asks Android itself (the real prompt or the exact settings screen) for the steps it can. */
+  function can(key) { return !!(window.apollo && window.apollo.allows && window.apollo.allows(key)); }
+
+  function load() {
+    var rows = q("SELECT s.id, s.key, s.step, s.why, s.fix, s.done, st.ok, st.detail, st.at FROM steps s LEFT JOIN status st ON st.key = s.key ORDER BY s.sort, s.id");
+    rows.forEach(function (r) {
+      // His Allow's answer stands in until Apollo's status row for that key is newer.
+      var n = now[r.key];
+      if (n && !(r.at && r.at > n.at)) { r.ok = n.ok ? 1 : 0; r.detail = n.detail; r.at = n.at; }
+      r.isDone = !!(r.done || r.ok || marked[r.id]); r.lost = r.ok === 0 && r.done; });
+    var left = rows.filter(function (r) { return !r.isDone || r.lost; }), done = rows.filter(function (r) { return r.isDone && !r.lost; });
+    $("sum").textContent = rows.length ? done.length + " of " + rows.length + " done" + (left.length ? "" : ". All set.") : "";
+    $("meter").style.width = rows.length ? Math.round(100 * done.length / rows.length) + "%" : "0";
+    $("left").innerHTML = left.length ? left.map(item).join("") : '<div class="empty">Nothing left.</div>';
+    $("done").innerHTML = done.length ? done.map(item).join("") : '<div class="empty">Nothing yet.</div>';
+    document.querySelectorAll(".step .head").forEach(function (h) { h.onclick = function () { var s = h.parentNode; opened[s.dataset.id] = s.classList.toggle("open"); }; });
+    document.querySelectorAll("[data-did]").forEach(function (b) {
+      b.onclick = function () {
+        var r = write("UPDATE steps SET done = 1 WHERE id = ?", [Number(b.dataset.did)]);
+        if (!r.error) { marked[b.dataset.did] = true; load(); }
+      };
+    });
+    document.querySelectorAll("[data-allow]").forEach(function (b) {
+      b.onclick = function (e) {
+        e.stopPropagation();
+        var key = b.dataset.allow;
+        b.disabled = true;
+        window.apollo.allow(key).then(function (r) {
+          now[key] = { ok: !!r.ok, detail: r.detail, at: Date.now() };
+          load();
+        });
+      };
+    });
+    document.querySelectorAll("[data-help]").forEach(function (b) {
+      b.onclick = function () {
+        var r = rows.filter(function (x) { return x.id === Number(b.dataset.help); })[0];
+        tap("help", { key: r.key, step: r.step });
+        b.textContent = "Athena will help in chat";
+      };
+    });
+  }
+
+  function item(r) {
+    var ask = !(r.isDone && !r.lost) && can(r.key);
+    var cls = "step" + (r.isDone && !r.lost ? " done" : "") + (r.lost ? " lost" : "") + (opened[r.id] ? " open" : "");
+    return '<div class="' + cls + '" data-id="' + r.id + '"><div class="head"><span class="tick"></span><b>' + esc(r.step) + "</b>" +
+      (r.lost ? '<span class="end need">Off again</span>' : "") +
+      (ask ? '<button class="primary" data-allow="' + esc(r.key) + '">Allow</button>' : "") + '</div><div class="more">' +
+      (r.why ? '<div class="quiet">' + esc(r.why) + "</div>" : "") +
+      (r.fix ? '<div class="fix">' + esc(r.fix) + "</div>" : "") +
+      (r.detail ? '<div class="quiet">Apollo: ' + esc(r.detail) + (r.at ? ", " + when(r.at) : "") + "</div>" : "") +
+      (r.isDone && !r.lost ? "" : '<div class="bar">' + (ask ? "" : '<button class="primary" data-did="' + r.id + '">I did this</button>') + '<button data-help="' + r.id + '">Help</button></div>') +
+      "</div></div>";
+  }
+  load();
+  // A status the phone reports later (a widget he placed, a setting turned on in Android) ticks without a tap.
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
+  setInterval(function () { if (!document.hidden) load(); }, 15000);
+})();
+</script>
+</body>
+</html>

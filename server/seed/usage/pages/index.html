@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Usage</title><link rel="stylesheet" href="apollo.css">
+<style>
+.credit .top { display: flex; align-items: baseline; gap: 8px; }
+.credit .bar { height: 12px; margin: 14px 0 8px; }
+.pace { position: relative; }
+.pace b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--quiet); border-radius: 1px; }
+.meter { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.meter:last-child { border: 0; }
+.meter .line { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Usage</div>
+<h1>Allowances</h1>
+<div class="kicker">Athena, Managed Agents credit</div>
+<div class="card credit">
+  <div class="top"><span class="n big" id="spent">$0</span><span class="quiet" id="cap">of $200</span></div>
+  <div class="bar pace" id="bar"><i id="fill" style="width:0"></i><b id="mark" title="Even pace for today"></b></div>
+  <div class="small" id="cs">No reading yet. Athena adds one when she checks the usage tool.</div>
+</div>
+<div class="kicker">Iris, Claude</div><div class="card" id="iris"></div>
+<div class="kicker">Atlas, Codex</div><div class="card" id="atlas"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function resets(ms) {
+    if (!ms) return "";
+    var m = Math.round((ms - Date.now()) / 60000);
+    return m <= 0 ? "reset due" : m < 60 ? "resets in " + m + " min" : m < 1440 ? "resets in " + Math.floor(m / 60) + " h " + (m % 60) + " min" :
+      "resets " + new Date(ms).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+  var latest = q("SELECT u.* FROM usage u JOIN (SELECT who, meter, MAX(at) AS at FROM usage GROUP BY who, meter) l ON l.who = u.who AND l.meter = u.meter AND l.at = u.at");
+  function get(who, meter) { return latest.filter(function (r) { return r.who === who && r.meter === meter; })[0]; }
+
+  var c = get("athena", "managed_month");
+  if (c) {
+    var cap = c.cap_usd || 200, used = c.used_usd || 0, now = new Date();
+    var days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(), even = (now.getDate() - 1 + now.getHours() / 24) / days;
+    document.getElementById("spent").textContent = "$" + used.toFixed(used < 100 ? 2 : 0);
+    document.getElementById("cap").textContent = "of $" + Math.round(cap);
+    document.getElementById("fill").style.width = Math.min(100, used / cap * 100) + "%";
+    document.getElementById("mark").style.left = (even * 100).toFixed(1) + "%";
+    if (used >= cap * .9) document.getElementById("bar").classList.add("over");
+    var ahead = used - cap * even;
+    document.getElementById("cs").textContent = (Math.abs(ahead) < 1 ? "On an even pace" : "$" + Math.abs(ahead).toFixed(0) + (ahead > 0 ? " ahead of" : " under") + " an even pace") +
+      ", " + (days - now.getDate()) + " days left" + (c.detail ? ". " + c.detail : "") + (c.source ? " (" + c.source + ")" : "");
+  }
+
+  function meters(id, rows) {
+    var have = rows.filter(function (r) { return r[1]; });
+    document.getElementById(id).innerHTML = have.length ? have.map(function (r) {
+      var u = r[1], pct = Math.max(0, Math.min(100, u.used_pct || 0)), hot = pct >= 90;
+      return '<div class="meter"><div class="line"><span>' + r[0] + '</span><span><span class="n mid' + (hot ? ' red' : '') + '">' + Math.round(pct) + '%</span></span></div>' +
+        '<div class="bar' + (hot ? " over" : "") + '"><i style="width:' + pct + '%"></i></div><div class="small" style="margin-top:6px">' + esc(resets(u.resets_at)) +
+        (u.detail ? (u.resets_at ? ", " : "") + esc(u.detail) : "") + '</div></div>';
+    }).join("") : '<div class="empty">No reading yet.</div>';
+  }
+  meters("iris", [["5-hour window", get("iris", "claude_5h")], ["Weekly", get("iris", "claude_7d")]]);
+  meters("atlas", [["5-hour window", get("atlas", "codex_5h")], ["Weekly", get("atlas", "codex_week")]]);
+})();
+</script></body></html>

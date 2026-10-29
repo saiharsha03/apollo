@@ -1,0 +1,90 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sports</title><link rel="stylesheet" href="apollo.css">
+<style>
+.hero { background: var(--mine); color: #fff; border-radius: 24px; padding: 18px 18px 16px; position: relative; overflow: hidden; }
+.hero .strip { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+.hero .kicker { color: rgba(255,255,255,.62); margin: 0 0 10px; }
+.hero h2 { font-size: 20px; font-weight: 700; }
+.hero .small { color: rgba(255,255,255,.62); }
+.count { display: flex; gap: 18px; margin: 14px 0 6px; }
+.count div { text-align: center; }
+.count .n { font-size: 48px; line-height: 1; color: #fff; }
+.count label { margin: 4px 0 0; font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,.62); }
+.vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.vs .side { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vs .side.r { justify-content: flex-end; text-align: right; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--line); }
+.score { font-family: "Doto", ui-monospace, monospace; font-weight: 900; font-size: 22px; white-space: nowrap; }
+.live { color: var(--alarm); font-weight: 700; font-size: 12px; letter-spacing: 1.2px; }
+.reveal { font-size: 13px; padding: 6px 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: flex; align-items: center; gap: 6px; background: var(--raised); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Sports</div>
+<div id="hero"></div>
+<div id="live"></div>
+<div class="kicker">Coming up</div><div class="card" id="next"></div>
+<div class="kicker">Results</div><div class="card" id="results"></div>
+<div class="kicker">Following</div><div class="chips" id="teams"></div>
+<script>
+(function () {
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function color(c) { return /^#[0-9a-fA-F]{6}$/.test(c || "") ? c : "var(--line)"; }
+  function when(ms) { return new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
+  var M = "SELECT m.*, h.name AS hn, h.short AS hs, h.color AS hc, a.name AS an, a.short AS as_, a.color AS ac FROM matches m " +
+          "LEFT JOIN teams h ON h.id = m.home_id LEFT JOIN teams a ON a.id = m.away_id ";
+  var shown = {};
+
+  // A race (or any event without an away side) is its title; a match is home v away.
+  function name(m) { return !m.away_id ? esc(m.title || m.hn || m.league) : esc(m.hn || "?") + " v " + esc(m.an || "?"); }
+  function sides(m, scores) {
+    if (!m.away_id) return '<div class="title">' + name(m) + '</div>' + (scores && m.detail ? '<div class="small">' + esc(m.detail) + '</div>' : "");
+    return '<div class="vs"><div class="side"><span class="dot" style="background:' + color(m.hc) + '"></span><span class="title">' + esc(m.hs || m.hn) + '</span></div>' +
+      '<div class="score">' + (scores ? esc(m.home_score || "-") + " - " + esc(m.away_score || "-") : "v") + '</div>' +
+      '<div class="side r"><span class="title">' + esc(m.as_ || m.an) + '</span><span class="dot" style="background:' + color(m.ac) + '"></span></div></div>';
+  }
+
+  var now = Date.now();
+  var next = q(M + "WHERE m.status = 'scheduled' AND m.starts_at > " + now + " ORDER BY m.starts_at LIMIT 8");
+  var hero = document.getElementById("hero");
+  if (next.length) {
+    var h = next[0];
+    hero.innerHTML = '<div class="hero"><div class="strip" style="background:' + color(h.hc || h.ac) + '"></div>' +
+      '<div class="kicker">Next up, ' + esc(h.league || h.sport) + '</div><h2>' + name(h) + '</h2>' +
+      '<div class="count"><div><div class="n" id="cd">00</div><label>Days</label></div><div><div class="n" id="ch">00</div><label>Hrs</label></div><div><div class="n" id="cm">00</div><label>Min</label></div></div>' +
+      '<div class="small">' + esc(when(h.starts_at)) + (h.venue ? ", " + esc(h.venue) : "") + '</div></div>';
+    var tick = function () {
+      var s = Math.max(0, Math.floor((h.starts_at - Date.now()) / 60000));
+      document.getElementById("cd").textContent = String(Math.floor(s / 1440)).padStart(2, "0");
+      document.getElementById("ch").textContent = String(Math.floor(s / 60) % 24).padStart(2, "0");
+      document.getElementById("cm").textContent = String(s % 60).padStart(2, "0");
+    };
+    tick(); setInterval(tick, 20000);
+  }
+
+  var live = q(M + "WHERE m.status = 'live' ORDER BY m.starts_at");
+  document.getElementById("live").innerHTML = live.length ? '<div class="kicker"><span class="live">Live</span></div><div class="card">' + live.map(function (m) {
+    return '<div class="row"><div class="grow">' + sides(m, !m.hide_score) + (m.detail && m.away_id ? '<div class="small">' + esc(m.detail) + '</div>' : "") + '</div></div>';
+  }).join("") + '</div>' : "";
+
+  document.getElementById("next").innerHTML = next.length > 1 ? next.slice(1).map(function (m) {
+    return '<div class="row"><div class="grow">' + sides(m, false) + '<div class="small">' + esc(when(m.starts_at)) + (m.league ? ", " + esc(m.league) : "") + '</div></div></div>';
+  }).join("") : '<div class="empty">' + (next.length ? "Nothing else scheduled." : "No fixtures yet. Tell Athena who you follow.") + '</div>';
+
+  function results() {
+    var res = q(M + "WHERE m.status = 'final' ORDER BY m.starts_at DESC LIMIT 12");
+    document.getElementById("results").innerHTML = res.length ? res.map(function (m) {
+      var hide = m.hide_score && !shown[m.id];
+      return '<div class="row"><div class="grow">' + (hide ? '<div class="title">' + name(m) + '</div><div class="small">Result hidden</div>' : sides(m, true)) +
+        '<div class="small">' + esc(when(m.starts_at)) + '</div></div>' + (hide ? '<button class="reveal" data-show="' + m.id + '">Show</button>' : "") + '</div>';
+    }).join("") : '<div class="empty">No results yet.</div>';
+    document.querySelectorAll("[data-show]").forEach(function (b) { b.onclick = function () { shown[b.dataset.show] = true; results(); }; });
+  }
+  results();
+
+  document.getElementById("teams").innerHTML = q("SELECT name, color, league FROM teams WHERE following = 1 ORDER BY sport, name").map(function (t) {
+    return '<span class="chip"><span class="dot" style="background:' + color(t.color) + '"></span>' + esc(t.name) + '</span>';
+  }).join("") || '<div class="empty">Nobody yet.</div>';
+})();
+</script></body></html>

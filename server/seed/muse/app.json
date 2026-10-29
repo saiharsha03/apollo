@@ -1,0 +1,16 @@
+{
+  "name": "muse",
+  "title": "Muse",
+  "icon": "music",
+  "about": "His Spotify listening: every play the phone sees (a phone table), what he's into in music.md, and music routines like Spotify on when the car connects.",
+  "section": true,
+  "pages": [
+    "pages/index.html"
+  ],
+  "widgets": [
+    "widgets/recent.html"
+  ],
+  "phone_tables": [
+    "plays"
+  ]
+}

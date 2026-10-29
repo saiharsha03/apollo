@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="look.css">
+<script src="kit.js"></script>
+<style>
+  .topics { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .topics button { min-height: 36px; padding: 0 14px; font-size: 14px; }
+  .topics button.on { background: var(--ink); border-color: var(--ink); color: var(--ground); }
+  .fact { padding: 12px 0; border-top: 1px solid var(--line); }
+  .fact:first-child { border-top: 0; }
+  .fact .src { font-size: 12px; color: var(--quiet); margin-top: 4px; }
+  .fact .bar { margin-top: 8px; }
+  .fact .bar button { min-height: 36px; padding: 0 14px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Memory</h1>
+  <div class="quiet" id="count"></div>
+  <input id="find" placeholder="Search what Athena knows" style="margin-top:12px">
+  <div class="topics" id="topics"></div>
+  <div id="note"></div>
+  <div class="card" id="facts"></div>
+</div>
+<script>
+(function () {
+  var topic = null, sure = {}, wrong = {};
+
+  function topics() {
+    var t = q("SELECT topic, count(*) AS n, sum(confirmed = 0) AS open FROM facts GROUP BY topic ORDER BY n DESC");
+    var all = t.reduce(function (s, x) { return s + x.n; }, 0), open = t.reduce(function (s, x) { return s + x.open; }, 0);
+    $("count").textContent = all ? all + " facts, " + open + " for you to check" : "";
+    $("topics").innerHTML = '<button data-t="">All</button>' + t.map(function (x) {
+      return '<button data-t="' + esc(x.topic) + '">' + esc(x.topic) + " " + x.n + "</button>";
+    }).join("");
+    $("topics").querySelectorAll("button").forEach(function (b) {
+      b.classList.toggle("on", (b.dataset.t || null) === topic);
+      b.onclick = function () { topic = b.dataset.t || null; topics(); facts(); };
+    });
+  }
+
+  function facts() {
+    var f = $("find").value.trim(), where = [];
+    if (topic) where.push("topic = " + lit(topic));
+    if (f.length > 1) where.push("(fact LIKE " + lit("%" + f + "%") + " OR topic LIKE " + lit("%" + f + "%") + ")");
+    var rows = q("SELECT id, fact, topic, source, confirmed, updated FROM facts" + (where.length ? " WHERE " + where.join(" AND ") : "") +
+      " ORDER BY confirmed, updated DESC LIMIT 400");
+    var file = topic && window.zeusNative ? window.zeusNative.file("notes/" + topic + ".md") : "";
+    $("note").innerHTML = file ? '<div class="bar" style="margin:0 0 10px"><button id="md">Athena\'s notes on ' + esc(topic) + "</button></div>" : "";
+    if (file) $("md").onclick = function () { location.href = "../notes/" + encodeURIComponent(topic) + ".md"; };
+    $("facts").innerHTML = rows.length ? rows.map(function (r) {
+      var ok = r.confirmed || sure[r.id];
+      return '<div class="fact"><div>' + esc(r.fact) + '</div><div class="src">' + (topic ? "" : esc(r.topic) + ", ") + esc(r.source || "") +
+        (r.updated ? ", " + day(r.updated) : "") + (ok ? ", confirmed" : "") + "</div>" +
+        (ok || wrong[r.id] ? (wrong[r.id] ? '<div class="src">Athena will ask you about it.</div>' : "") :
+          '<div class="bar"><button class="primary" data-ok="' + r.id + '">That\'s right</button><button data-no="' + r.id + '">Not right</button></div>') + "</div>";
+    }).join("") : '<div class="empty">' + (f || topic ? "Nothing matches." : "Nothing yet. Athena saves facts here as she learns them.") + "</div>";
+    $("facts").querySelectorAll("[data-ok]").forEach(function (b) {
+      b.onclick = function () {
+        var r = write("UPDATE facts SET confirmed = 1, updated = ? WHERE id = ?", [Date.now(), Number(b.dataset.ok)]);
+        if (!r.error) { sure[b.dataset.ok] = true; facts(); }
+      };
+    });
+    $("facts").querySelectorAll("[data-no]").forEach(function (b) {
+      b.onclick = function () {
+        var row = rows.filter(function (x) { return x.id === Number(b.dataset.no); })[0];
+        tap("wrong", { id: row.id, fact: row.fact });
+        wrong[row.id] = true; facts();
+      };
+    });
+  }
+
+  $("find").oninput = facts;
+  topics(); facts();
+})();
+</script>
+</body>
+</html>

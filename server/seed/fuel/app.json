@@ -1,0 +1,10 @@
+{
+  "name": "fuel",
+  "title": "Fuel",
+  "icon": "fuel",
+  "about": "His fill-ups (gallons, price, odometer, station) with mpg and cost a mile, next to his recent drives read from the Drives app. Zeus's fuel log moves in here.",
+  "section": true,
+  "pages": ["pages/index.html"],
+  "widgets": ["widgets/fuel.html"],
+  "phone_tables": []
+}

@@ -1,0 +1,85 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tasks</title><link rel="stylesheet" href="apollo.css"><script src="/kit/zeus.js"></script>
+<style>
+.check { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); background: none; padding: 0; flex: none; }
+.check.on { background: var(--ink); border-color: var(--ink); }
+.done .title { text-decoration: line-through; color: var(--quiet); }
+.add { display: flex; gap: 8px; margin-top: 12px; }
+.add input { flex: 1; }
+.who { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--quiet); }
+</style></head><body>
+<div class="kicker" style="margin-top:0">Tasks</div>
+<h1 id="count">Tasks</h1>
+<div class="small" id="sub"></div>
+<div class="tabs" id="lists"></div>
+<div class="add"><input id="new" placeholder="Add a task" maxlength="200"><button class="go" id="addb">Add</button></div>
+<div id="groups"></div>
+<p><button id="priv" hidden></button></p>
+<script>
+(function () {
+  var PRIVATE = "('money', 'legal', 'health')";
+  function q(s) { var r = window.apollo ? apollo.sql(s) : []; return Array.isArray(r) ? r : []; }
+  function w(s, a) { return window.zeus ? zeus.sql(s, a) : { error: "no bridge" }; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  var today = ymd(new Date()), tomorrow = ymd(new Date(Date.now() + 864e5));
+  var list = null, showPrivate = false, closed = {};
+
+  function render() {
+    var lists = q("SELECT id, name FROM lists ORDER BY name");
+    document.getElementById("lists").innerHTML = '<button data-l="" aria-pressed="' + (list === null) + '">All</button>' +
+      lists.map(function (l) { return '<button data-l="' + l.id + '" aria-pressed="' + (list === l.id) + '">' + esc(l.name) + '</button>'; }).join("");
+    document.querySelectorAll("#lists button").forEach(function (b) { b.onclick = function () { list = b.dataset.l ? Number(b.dataset.l) : null; render(); }; });
+
+    var where = "status = 'pending'" + (list !== null ? " AND list_id = " + list : "");
+    var hidden = q("SELECT COUNT(*) AS n FROM tasks WHERE " + where + " AND lower(COALESCE(context, '')) IN " + PRIVATE)[0];
+    if (!showPrivate) where += " AND lower(COALESCE(context, '')) NOT IN " + PRIVATE;
+    var rows = q("SELECT t.id, title, priority, due_date, owner, blocked_on_owner, notes, l.name AS list FROM tasks t LEFT JOIN lists l ON l.id = t.list_id WHERE " + where +
+      " ORDER BY CASE WHEN due_date < '" + today + "' OR priority = 'high' THEN 0 WHEN due_date = '" + today + "' THEN 1 WHEN blocked_on_owner = 1 THEN 2 ELSE 3 END, due_date IS NULL, due_date, t.id");
+    var groups = [["Needs you now", []], ["Today", []], ["Waiting on you", []], ["Later", []]];
+    rows.forEach(function (r) {
+      var g = (r.due_date && r.due_date < today) || r.priority === "high" ? 0 : r.due_date === today ? 1 : r.blocked_on_owner ? 2 : 3;
+      groups[g][1].push(r);
+    });
+    document.getElementById("count").textContent = rows.length ? rows.length + " open" : "All clear";
+    document.getElementById("sub").textContent = groups[0][1].length ? groups[0][1].length + " need you now" : "";
+    document.getElementById("groups").innerHTML = rows.length ? groups.filter(function (g) { return g[1].length; }).map(function (g) {
+      return '<div class="kicker">' + g[0] + '</div><div class="card">' + g[1].map(function (r) {
+        var late = r.due_date && r.due_date < today, c = closed[r.id];
+        return '<div class="row' + (c ? " done" : "") + '"><button class="check' + (c ? " on" : "") + '" data-done="' + r.id + '" aria-label="Done"></button>' +
+          '<div class="grow"><div class="title">' + esc(r.title) + '</div><div class="small">' +
+          [r.due_date ? '<span class="' + (late ? "red" : "") + '">' + (late ? "Overdue " : "Due ") + esc(r.due_date) + "</span>" : "",
+           r.list ? esc(r.list) : "", r.blocked_on_owner ? "waiting on you" : ""].filter(Boolean).join(", ") + '</div></div>' +
+          (r.owner && r.owner !== "owner" ? '<span class="who">' + esc(r.owner) + '</span>' : "") +
+          (c ? "" : '<button data-snooze="' + r.id + '">Tomorrow</button>') + '</div>';
+      }).join("") + '</div>';
+    }).join("") : '<div class="empty">Nothing open. Iris syncs owner.db here.</div>';
+
+    var pb = document.getElementById("priv");
+    pb.hidden = !hidden || !hidden.n;
+    pb.textContent = showPrivate ? "Hide private tasks" : "Show " + (hidden ? hidden.n : 0) + " private";
+    document.querySelectorAll("[data-done]").forEach(function (b) {
+      b.onclick = function () {
+        var id = Number(b.dataset.done);
+        if (closed[id]) return;
+        w("UPDATE tasks SET status = 'done', updated = ?, dirty = 1 WHERE id = ?", [Date.now(), id]);
+        closed[id] = true; if (window.zeus) zeus.haptic(); render();
+      };
+    });
+    document.querySelectorAll("[data-snooze]").forEach(function (b) {
+      b.onclick = function () { w("UPDATE tasks SET due_date = ?, updated = ?, dirty = 1 WHERE id = ?", [tomorrow, Date.now(), Number(b.dataset.snooze)]); b.disabled = true; b.textContent = "Moved"; };
+    });
+  }
+  document.getElementById("priv").onclick = function () { showPrivate = !showPrivate; render(); };
+  function add() {
+    var i = document.getElementById("new"), t = i.value.trim();
+    if (!t) return;
+    var r = w("INSERT INTO tasks(title, owner, status, created, updated, dirty, list_id) VALUES(?, 'owner', 'pending', ?, ?, 1, ?)", [t, Date.now(), Date.now(), list]);
+    i.value = "";
+    document.getElementById("sub").textContent = r && r.error ? "Not saved: " + r.error : "Added. It shows here after the next sync.";
+  }
+  document.getElementById("addb").onclick = add;
+  document.getElementById("new").onkeydown = function (e) { if (e.key === "Enter") add(); };
+  render();
+})();
+</script></body></html>

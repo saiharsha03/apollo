@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html, body { margin: 0; background: #1C1A17; color: #A39A8C; font: 14px/1.4 Roboto, system-ui, sans-serif; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; }
+  p { margin: 12px 16px; }
+</style></head>
+<body>
+<canvas id="stage"></canvas>
+<p id="note">Iris drifts over and rains near Athena.</p>
+<script>
+  // Two built-in characters and one of this app's own (pixel/rain.json) on one 40 x 26 dot stage.
+  var c = document.getElementById('stage'), dot = Math.floor(c.clientWidth * devicePixelRatio / 40);
+  c.width = 40 * dot; c.height = 26 * dot;
+  var drift = [{ x: 18, ms: 3000 }, { x: 18, ms: 1500 }, { x: 2, ms: 3000 }, { x: 2, ms: 1500 }];
+  var s = apollo.pixel.stage(c, { w: 40, h: 26, dot: dot, actors: [
+    // built-in frames are 24 x 20 with the cloud's body at dot (1, 10): y -10 lifts it to the top
+    { character: 'cloud', scene: 'stand', x: 2, y: -10, moves: drift },
+    { character: 'rain', scene: 'fall', x: 3, y: 10, moves: drift.map(function (m) { return { x: m.x + 1, ms: m.ms }; }) },
+    { character: 'owl', scene: 'stand', x: 25, y: 6 }
+  ]});
+  s.ready.then(function (n) { if (n < 3) document.getElementById('note').textContent = 'Some characters did not load.'; });
+</script>
+</body></html>

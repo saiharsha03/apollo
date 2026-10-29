@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Any size, any number of copies; each copy is set up to show one thing (or Dynamic). The worker redraws them. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen|keyguard"
+    android:initialLayout="@layout/apollo_widget"
+    android:configure="dev.apollo.apps.WidgetSetupActivity"
+    android:widgetFeatures="reconfigurable"
+    android:updatePeriodMillis="0"
+    android:description="@string/widget_about" />

@@ -1,0 +1,197 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drives</title><link rel="stylesheet" href="apollo.css">
+<style>
+/* Numbers in the text font, tabular (Owner: no dot-matrix digits on Drives). */
+.num { font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -.3px; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+.stats .card { padding: 12px 14px; }
+.stats .card + .card { margin-top: 0; }
+.stats .num { font-size: 26px; line-height: 1.1; }
+@media (min-width: 520px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+.dayh { margin: 16px 4px 6px; font-size: 12px; color: var(--quiet); letter-spacing: .04em; text-transform: uppercase; }
+.drive { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.drive:first-child { border-top: 0; }
+.drive:active { opacity: .7; }
+.thumb { width: 72px; height: 56px; flex: none; border-radius: var(--radius-s); background: var(--soft); }
+.thumb svg, .big svg { width: 100%; height: 100%; display: block; }
+.info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.route { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score { flex: none; text-align: right; min-width: 44px; }
+.score .num { font-size: 22px; line-height: 1; }
+.low { color: var(--alarm); }
+.back { margin-bottom: 6px; }
+.big { margin-top: 12px; aspect-ratio: 3 / 2; border-radius: var(--radius); background: var(--raised); border: 1px solid var(--line); overflow: hidden; }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 16px; }
+.leg { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.leg .grow { flex: 1; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ring { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 2px solid var(--ink); }
+.zero { color: var(--quiet); }
+.ev { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.ev:last-child { border-bottom: 0; }
+:root { --e-brake: var(--alarm); --e-accel: #FF9F0A; --e-turn: var(--accent); --e-speed: #C77DFF; --e-phone: #8B939C; }
+</style></head><body>
+<div id="list-view">
+  <div class="kicker" style="margin-top:0">Drives</div>
+  <h1>This week</h1><div class="small" id="sub"></div>
+  <div class="stats">
+    <div class="card"><div class="num" id="mi">--</div><div class="small">miles</div></div>
+    <div class="card"><div class="num" id="min">--</div><div class="small">minutes</div></div>
+    <div class="card"><div class="num" id="cnt">--</div><div class="small">drives</div></div>
+    <div class="card"><div class="num" id="avg">--</div><div class="small">average score</div></div>
+  </div>
+  <div id="list"></div>
+</div>
+<div id="report-view" hidden></div>
+<script>
+(function () {
+  function q(sql) { try { var r = window.apollo ? apollo.sql(sql) : []; return Array.isArray(r) ? r : []; } catch (e) { return []; } }
+  // Text read for Athena can come wrapped in « »; take them off.
+  function s(v) { return v == null ? "" : String(v).replace(/^«/, "").replace(/»$/, ""); }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function hm(ms) { return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); }
+  function day(ms) { return new Date(ms).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }); }
+  function json(t) { try { return JSON.parse(s(t)); } catch (e) { return null; } }
+  function dist(a, b, c, d) {
+    var R = 6371000, r = Math.PI / 180, dl = (c - a) * r, dn = (d - b) * r;
+    var x = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a * r) * Math.cos(c * r) * Math.sin(dn / 2) * Math.sin(dn / 2);
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+
+  var KINDS = [
+    { k: "hard_brake", label: "Hard braking", c: "var(--e-brake)" },
+    { k: "rapid_accel", label: "Rapid acceleration", c: "var(--e-accel)" },
+    { k: "sharp_turn", label: "Sharp turns", c: "var(--e-turn)" },
+    { k: "speeding", label: "Speeding", c: "var(--e-speed)" },
+    { k: "phone_handling", label: "Phone picked up", c: "var(--e-phone)" }
+  ];
+  var COLOR = {}; KINDS.forEach(function (x) { COLOR[x.k] = x.c; });
+
+  var named = q("SELECT name, lat, lng, radius_m FROM places").map(function (p) { return { name: s(p.name), lat: p.lat, lng: p.lng, r: p.radius_m || 150 }; })
+    .concat(q("SELECT lat, lng, place FROM stays WHERE place IS NOT NULL ORDER BY start DESC LIMIT 200").map(function (p) { return { name: s(p.place), lat: p.lat, lng: p.lng, r: 150 }; }))
+    .filter(function (p) { return p.name && isFinite(p.lat) && isFinite(p.lng); });
+  function nameAt(pt) {
+    if (!pt) return "Unknown";
+    var best = null, bd = 1e9;
+    named.forEach(function (p) { var d = dist(pt[0], pt[1], p.lat, p.lng); if (d <= Math.max(p.r, 60) && d < bd) { best = p; bd = d; } });
+    return best ? best.name : "Unnamed place";
+  }
+
+  var rows = q("SELECT id, start, end, miles, minutes, points, events, max_mph, score FROM trips ORDER BY start DESC LIMIT 100").map(function (t) {
+    var pts = json(t.points);
+    pts = Array.isArray(pts) ? pts.filter(function (p) { return p && isFinite(p[0]) && isFinite(p[1]); }) : [];
+    var ev = t.events == null ? null : json(t.events);
+    var top = t.max_mph;
+    if (top == null) pts.forEach(function (p) { if (isFinite(p[3])) top = Math.max(top || 0, p[3] * 2.23694); });
+    return { id: t.id, start: t.start, end: t.end || (t.minutes ? t.start + t.minutes * 60000 : null), miles: t.miles, minutes: t.minutes,
+             pts: pts, ev: Array.isArray(ev) ? ev : null, top: top, score: t.score, from: nameAt(pts[0]), to: nameAt(pts[pts.length - 1]) };
+  });
+
+  function map(t, W, H, pad, big) {
+    var pts = t.pts;
+    if (pts.length < 2) return '<svg viewBox="0 0 ' + W + ' ' + H + '"></svg>';
+    var minLa = 90, maxLa = -90, minLn = 180, maxLn = -180;
+    pts.forEach(function (p) { minLa = Math.min(minLa, p[0]); maxLa = Math.max(maxLa, p[0]); minLn = Math.min(minLn, p[1]); maxLn = Math.max(maxLn, p[1]); });
+    var k = Math.cos((minLa + maxLa) / 2 * Math.PI / 180);
+    var w = Math.max((maxLn - minLn) * k, 1e-5), h = Math.max(maxLa - minLa, 1e-5);
+    var sc = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h);
+    var ox = (W - w * sc) / 2, oy = (H - h * sc) / 2;
+    function X(p) { return (ox + (p[1] - minLn) * k * sc).toFixed(1); }
+    function Y(p) { return (oy + (maxLa - p[0]) * sc).toFixed(1); }
+    var d = pts.map(function (p, i) { return (i ? "L" : "M") + X(p) + " " + Y(p); }).join("");
+    var a = pts[0], b = pts[pts.length - 1], r = big ? 6 : 3.5;
+    var out = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Route map">' +
+      '<path d="' + d + '" fill="none" stroke="var(--ink)" stroke-width="' + (big ? 3 : 2) + '" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>' +
+      '<circle cx="' + X(a) + '" cy="' + Y(a) + '" r="' + r + '" fill="var(--ground)" stroke="var(--ink)" stroke-width="2"/>' +
+      '<circle cx="' + X(b) + '" cy="' + Y(b) + '" r="' + r + '" fill="var(--ink)"/>';
+    if (big) (t.ev || []).forEach(function (e) {
+      if (!e || !COLOR[e.kind] || !isFinite(e.lat) || !isFinite(e.lng) || (e.lat === 0 && e.lng === 0)) return;
+      out += '<circle cx="' + X([e.lat, e.lng]) + '" cy="' + Y([e.lat, e.lng]) + '" r="7" fill="' + COLOR[e.kind] + '" stroke="var(--raised)" stroke-width="2.5"/>';
+    });
+    return out + '</svg>';
+  }
+
+  function scoreHtml(t) {
+    if (t.ev == null || t.score == null) return '<span class="num zero">--</span>';
+    return '<span class="num' + (t.score < 70 ? " low" : "") + '">' + t.score + '</span>';
+  }
+  function n1(v) { return v == null ? "--" : Number(v).toFixed(1); }
+  function n0(v) { return v == null ? "--" : String(Math.round(v)); }
+
+  // Week: Monday midnight to now. Average score weighted by minutes, over drives that have events (Zeus's).
+  var mon = new Date(); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  var wk = rows.filter(function (t) { return t.start >= mon.getTime(); });
+  var sw = 0, sm = 0;
+  wk.forEach(function (t) { if (t.ev != null && t.score != null) { var m = Math.max(1, t.minutes || 0); sw += t.score * m; sm += m; } });
+  document.getElementById("mi").textContent = wk.reduce(function (a, t) { return a + (t.miles || 0); }, 0).toFixed(1);
+  document.getElementById("min").textContent = Math.round(wk.reduce(function (a, t) { return a + (t.minutes || 0); }, 0));
+  document.getElementById("cnt").textContent = wk.length;
+  document.getElementById("avg").textContent = sm ? Math.round(sw / sm) : "--";
+  document.getElementById("sub").textContent = "Since Monday, " + mon.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  var out = "", last = "";
+  rows.forEach(function (t) {
+    var dl = day(t.start);
+    if (dl !== last) { out += (last ? '</div>' : '') + '<div class="dayh">' + esc(dl) + '</div><div class="card">'; last = dl; }
+    out += '<div class="drive" data-id="' + t.id + '"><div class="thumb">' + map(t, 72, 56, 7, false) + '</div><div class="info">' +
+      '<div class="route">' + esc(t.from) + ' &rarr; ' + esc(t.to) + '</div>' +
+      '<div class="small">' + hm(t.start) + (t.end ? " to " + hm(t.end) : "") + '</div>' +
+      '<div class="small"><span class="num" style="color:var(--ink)">' + n1(t.miles) + '</span> mi &nbsp; <span class="num" style="color:var(--ink)">' + n0(t.minutes) + '</span> min</div>' +
+      '</div><div class="score">' + scoreHtml(t) + '<div class="small">score</div></div></div>';
+  });
+  document.getElementById("list").innerHTML = out ? out + '</div>' : '<div class="card empty">No drives yet. The car\'s Bluetooth starts each one.</div>';
+  document.getElementById("list").addEventListener("click", function (e) {
+    var d = e.target.closest(".drive");
+    if (d) location.hash = "d" + d.getAttribute("data-id");
+  });
+
+  function report(t) {
+    var counts = {};
+    (t.ev || []).forEach(function (e) { if (e && COLOR[e.kind]) counts[e.kind] = (counts[e.kind] || 0) + 1; });
+    var h = '<button class="back" id="back">Back</button>' +
+      '<div class="kicker">' + esc(day(t.start)) + '</div>' +
+      '<h1 style="overflow-wrap:anywhere">' + esc(t.from) + ' &rarr; ' + esc(t.to) + '</h1>' +
+      '<div class="small">' + hm(t.start) + (t.end ? " to " + hm(t.end) : "") + '</div>' +
+      '<div class="big">' + map(t, 360, 240, 18, true) + '</div>' +
+      '<div class="stats">' +
+      '<div class="card"><div class="num' + (t.ev != null && t.score != null && t.score < 70 ? " low" : "") + '">' + (t.ev != null && t.score != null ? t.score : "--") + '</div><div class="small">score</div></div>' +
+      '<div class="card"><div class="num">' + n1(t.miles) + '</div><div class="small">miles</div></div>' +
+      '<div class="card"><div class="num">' + n0(t.minutes) + '</div><div class="small">minutes</div></div>' +
+      '<div class="card"><div class="num">' + n0(t.top) + '</div><div class="small">top mph</div></div></div>';
+    if (t.ev == null) {
+      h += '<div class="kicker">Events</div><div class="card empty">No events recorded on this drive: it was recorded before the phone sensed braking, turns and speed.</div>';
+    } else {
+      h += '<div class="kicker">Events</div><div class="card"><div class="legend">' +
+        KINDS.map(function (x) {
+          var n = counts[x.k] || 0;
+          return '<div class="leg"><span class="dot" style="background:' + x.c + '"></span><span class="grow">' + x.label + '</span><span class="num' + (n ? "" : " zero") + '">' + n + '</span></div>';
+        }).join("") +
+        '<div class="leg"><span class="ring"></span><span class="grow">Start</span></div>' +
+        '<div class="leg"><span class="dot" style="background:var(--ink)"></span><span class="grow">End</span></div></div></div>';
+      var list = t.ev.filter(function (e) { return e && COLOR[e.kind]; }).sort(function (a, b) { return a.t - b.t; });
+      if (list.length) {
+        h += '<div class="kicker">When</div><div class="card">' + list.map(function (e) {
+          var x = KINDS.filter(function (k) { return k.k === e.kind; })[0];
+          var v = e.kind === "speeding" ? Math.round(e.value) + " mph" : e.value ? Number(e.value).toFixed(2) + " g" : "";
+          return '<div class="ev"><span class="dot" style="background:' + x.c + '"></span><span class="grow" style="flex:1">' + x.label + '</span>' +
+            '<span class="small num" style="font-weight:500">' + esc(v) + '</span><span class="small num" style="font-weight:500;min-width:62px;text-align:right">' + hm(e.t) + '</span></div>';
+        }).join("") + '</div>';
+      } else {
+        h += '<div class="small" style="margin:10px 4px">A clean drive: nothing to flag.</div>';
+      }
+    }
+    return h;
+  }
+
+  function route() {
+    var m = /^#d(\d+)$/.exec(location.hash), t = m && rows.filter(function (r) { return String(r.id) === m[1]; })[0];
+    var rv = document.getElementById("report-view");
+    document.getElementById("list-view").hidden = !!t;
+    rv.hidden = !t;
+    rv.innerHTML = t ? report(t) : "";
+    if (t) { document.getElementById("back").onclick = function () { history.back(); }; window.scrollTo(0, 0); }
+  }
+  window.addEventListener("hashchange", route);
+  route();
+})();
+</script></body></html>
