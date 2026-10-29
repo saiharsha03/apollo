@@ -51,7 +51,7 @@ HUMAN = ("owner", "claude")     # Owner, or a helper relaying for him: the agent
 # Look-alikes of the letters in the sender names (Cyrillic, Greek, Latin extras, digits), folded before matching.
 _LOOKS = str.maketrans({"а": "a", "ɑ": "a", "α": "a", "с": "c", "ϲ": "c", "ԁ": "d", "е": "e", "ε": "e", "һ": "h", "н": "h",
                         "і": "i", "ı": "i", "ι": "i", "ɩ": "i", "ӏ": "l", "1": "l", "|": "l", "η": "n", "п": "n", "о": "o",
-                        "ο": "o", "σ": "o", "0": "o", "р": "p", "ρ": "p", "г": "r", "ѕ": "s", "т": "t", "τ": "t", "υ": "u", "ս": "u"})
+                        "ο": "o", "σ": "o", "0": "o", "р": "p", "ρ": "p", "г": "r", "ѕ": "s", "т": "t", "τ": "t", "υ": "u", "ս": "u", "ԝ": "w", "ѡ": "w", "ɯ": "w", "ω": "w", "ա": "w"})
 
 
 def _fold(text):
